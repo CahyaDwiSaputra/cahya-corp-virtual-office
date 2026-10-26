@@ -1,0 +1,18 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+
+# Logs & temp files
+server.log
+*.log
+test_syntax.js
+
+# OS generated files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Local generator scratch files
+generate_cahya_corp*.py

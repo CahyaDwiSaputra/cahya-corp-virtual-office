@@ -1,0 +1,74 @@
+{
+  "pm": {
+    "name": "Tech Lead",
+    "role": "Product Manager",
+    "status": "idle",
+    "task": "Selesai: Menganalisis kebutuhan dan mendekom...",
+    "last_output": "Error: Timeout setelah 300 detik",
+    "active_pid": null,
+    "last_updated": 1792045884.766348
+  },
+  "uiux": {
+    "name": "UI/UX Lead",
+    "role": "Design Systems",
+    "status": "idle",
+    "task": "Selesai: Merancang design tokens, wireframe ...",
+    "last_output": "Error: Timeout setelah 300 detik",
+    "active_pid": null,
+    "last_updated": 1792044957.3082466
+  },
+  "frontend": {
+    "name": "Frontend Dev",
+    "role": "Client & Web UI",
+    "status": "idle",
+    "task": "Selesai: Membangun antarmuka web responsif, ...",
+    "last_output": "Error: Timeout setelah 300 detik",
+    "active_pid": null,
+    "last_updated": 1792044983.242179
+  },
+  "backend": {
+    "name": "Backend Dev",
+    "role": "API & Microservices",
+    "status": "idle",
+    "task": "Selesai: Membangun REST API endpoint, contro...",
+    "last_output": "Error: Timeout setelah 300 detik",
+    "active_pid": null,
+    "last_updated": 1792045256.374561
+  },
+  "database": {
+    "name": "DB Architect",
+    "role": "Data & Storage",
+    "status": "idle",
+    "task": "Selesai: Merancang skema relasional tabel, m...",
+    "last_output": "Error: Timeout setelah 300 detik",
+    "active_pid": null,
+    "last_updated": 1792045284.4709172
+  },
+  "devops": {
+    "name": "DevOps Eng",
+    "role": "Cloud & Infrastructure",
+    "status": "idle",
+    "task": "Selesai: Menyiapkan container Docker, Nginx ...",
+    "last_output": "Error: Timeout setelah 300 detik",
+    "active_pid": null,
+    "last_updated": 1792045557.6019838
+  },
+  "qa": {
+    "name": "QA Specialist",
+    "role": "Test Automation",
+    "status": "idle",
+    "task": "Selesai: Menulis skenario pengujian otomatis...",
+    "last_output": "Error: Timeout setelah 300 detik",
+    "active_pid": null,
+    "last_updated": 1792045584.6158407
+  },
+  "security": {
+    "name": "AppSec Lead",
+    "role": "Security & OWASP",
+    "status": "idle",
+    "task": "Selesai: Audit celah keamanan OWASP, validas...",
+    "last_output": "Error: Timeout setelah 300 detik",
+    "active_pid": null,
+    "last_updated": 1792045857.7517347
+  }
+}

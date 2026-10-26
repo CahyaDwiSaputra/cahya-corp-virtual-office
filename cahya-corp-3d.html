@@ -1,0 +1,2805 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cahya Corp — Advanced 3D Autonomous Studio</title>
+  <style>
+    :root {
+      --bg-studio: #f1f5f9;
+      --card-glass: rgba(255, 255, 255, 0.92);
+      --card-glass-dark: rgba(15, 23, 42, 0.88);
+      --card-border: rgba(15, 23, 42, 0.1);
+      --card-border-hover: rgba(15, 23, 42, 0.25);
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --purple: #8b5cf6;
+      --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-studio);
+      color: var(--text);
+      font-family: var(--font);
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      position: relative;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    #webgl-canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    /* 3D Floating Nameplates & Speech Layer */
+    #speech-layer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 10;
+      overflow: hidden;
+    }
+
+    .agent-billboard {
+      position: absolute;
+      transform: translate(-50%, -100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      pointer-events: auto;
+      cursor: pointer;
+      transition: transform 0.15s ease, opacity 0.2s ease;
+    }
+
+    .agent-pill {
+      background: rgba(255, 255, 255, 0.96);
+      border: 1px solid rgba(15, 23, 42, 0.12);
+      border-radius: 20px;
+      padding: 3px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 4px 16px rgba(15, 23, 42, 0.1);
+      backdrop-filter: blur(8px);
+      white-space: nowrap;
+      transition: all 0.15s ease;
+    }
+
+    .agent-billboard:hover .agent-pill {
+      border-color: var(--card-border-hover);
+      transform: translateY(-2px) scale(1.05);
+      box-shadow: 0 6px 20px rgba(15, 23, 42, 0.15);
+    }
+
+    .agent-billboard.selected .agent-pill {
+      border-color: var(--accent);
+      background: #eff6ff;
+      color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25);
+    }
+
+    .agent-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+    }
+    .dot-working { background: var(--success); }
+    .dot-wandering { background: var(--warning); }
+    .dot-meeting { background: var(--accent); }
+
+    .speech-bubble {
+      background: #0f172a;
+      color: #ffffff;
+      padding: 6px 12px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 500;
+      box-shadow: 0 6px 20px rgba(15, 23, 42, 0.28);
+      max-width: 220px;
+      text-align: center;
+      position: relative;
+      animation: popIn 0.22s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      line-height: 1.35;
+    }
+
+    .speech-bubble::after {
+      content: "";
+      position: absolute;
+      bottom: -5px;
+      left: 50%;
+      transform: translateX(-50%);
+      border-width: 5px 5px 0 5px;
+      border-style: solid;
+      border-color: #0f172a transparent transparent transparent;
+    }
+
+    @keyframes popIn {
+      0% { opacity: 0; transform: scale(0.7) translateY(6px); }
+      100% { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    /* TOP HEADER & SMART COMMAND CENTER */
+    header {
+      position: absolute;
+      top: 16px;
+      left: 20px;
+      right: 20px;
+      z-index: 25;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      pointer-events: none;
+      gap: 12px;
+    }
+
+    .glass-card {
+      background: var(--card-glass);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 8px 14px;
+      backdrop-filter: blur(20px);
+      box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.08);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      pointer-events: auto;
+    }
+
+    .brand-mark {
+      width: 32px;
+      height: 32px;
+      background: #0f172a;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 15px;
+      letter-spacing: -0.5px;
+    }
+
+    .brand-title {
+      font-size: 13.5px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      color: var(--text);
+    }
+
+    .brand-sub {
+      font-size: 10px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    /* SMART AI COMMAND BAR (CENTERPIECE) */
+    .smart-command-bar {
+      flex: 1;
+      max-width: 560px;
+      background: var(--card-glass);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 6px 12px;
+      backdrop-filter: blur(24px);
+      box-shadow: 0 6px 24px -2px rgba(15, 23, 42, 0.1);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      pointer-events: auto;
+      transition: all 0.2s ease;
+    }
+
+    .smart-command-bar:focus-within {
+      border-color: var(--accent);
+      box-shadow: 0 8px 30px rgba(37, 99, 235, 0.15);
+      transform: translateY(-1px);
+    }
+
+    .command-input-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .ai-sparkle-icon {
+      font-size: 15px;
+      color: var(--purple);
+      animation: pulseSparkle 2s infinite ease-in-out;
+    }
+
+    @keyframes pulseSparkle {
+      0%, 100% { opacity: 0.8; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.15); }
+    }
+
+    .command-input {
+      flex: 1;
+      border: none;
+      background: transparent;
+      font-family: inherit;
+      font-size: 12.5px;
+      color: var(--text);
+      outline: none;
+    }
+
+    .command-input::placeholder {
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+
+    .btn-exec-smart {
+      background: #0f172a;
+      border: 1px solid #0f172a;
+      color: #ffffff;
+      padding: 5px 12px;
+      border-radius: 8px;
+      font-size: 11.5px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+
+    .btn-exec-smart:hover {
+      background: #1e293b;
+      transform: translateY(-1px);
+    }
+
+    .router-prediction-pill {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 10.5px;
+      color: var(--text-muted);
+      padding: 2px 4px;
+      border-top: 1px solid rgba(15, 23, 42, 0.05);
+    }
+
+    .prediction-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-weight: 600;
+      color: var(--accent);
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      padding: 1px 7px;
+      border-radius: 12px;
+      font-size: 10px;
+    }
+
+    /* RIGHT GLOBAL CONTROLS */
+    .btn-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      pointer-events: auto;
+    }
+
+    .btn {
+      appearance: none;
+      background: var(--card-glass);
+      border: 1px solid var(--card-border);
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 11.5px;
+      font-weight: 600;
+      cursor: pointer;
+      backdrop-filter: blur(20px);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
+    }
+
+    .btn:hover {
+      background: #ffffff;
+      border-color: var(--card-border-hover);
+      transform: translateY(-1px);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+    }
+
+    .btn-dark {
+      background: #0f172a;
+      border-color: #0f172a;
+      color: #ffffff;
+    }
+
+    .btn-dark:hover {
+      background: #1e293b;
+      border-color: #1e293b;
+      color: #ffffff;
+    }
+
+    .btn-active-glow {
+      border-color: var(--accent) !important;
+      color: var(--accent) !important;
+      background: #eff6ff !important;
+    }
+
+    /* LEFT FLOATING DOCK (ROSTER & ADVANCED CONTROLS) */
+    .left-floating-controls {
+      position: absolute;
+      left: 20px;
+      top: 80px;
+      z-index: 25;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: auto;
+    }
+
+    .roster-popover {
+      width: 250px;
+      max-height: 440px;
+      background: var(--card-glass);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 12px;
+      backdrop-filter: blur(24px);
+      box-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.12);
+      display: none;
+      flex-direction: column;
+      gap: 5px;
+      overflow-y: auto;
+    }
+
+    .roster-popover.open { display: flex; }
+
+    .agent-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 9px;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      background: rgba(15, 23, 42, 0.02);
+      cursor: pointer;
+      font-size: 11.5px;
+      transition: all 0.15s ease;
+    }
+
+    .agent-row:hover {
+      background: #ffffff;
+      border-color: var(--card-border);
+      box-shadow: 0 2px 8px -2px rgba(15, 23, 42, 0.06);
+    }
+
+    .agent-row.selected {
+      background: #eff6ff;
+      border-color: #bfdbfe;
+    }
+
+    /* BOTTOM CONTROL DOCK (CAMERA, LIGHTING, SIM SPEED) */
+    .bottom-dock {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      right: 20px;
+      z-index: 25;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      pointer-events: none;
+    }
+
+    .dock-pill {
+      background: var(--card-glass);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 6px 10px;
+      backdrop-filter: blur(20px);
+      box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.08);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      pointer-events: auto;
+    }
+
+    .cam-btn {
+      padding: 5px 10px;
+      font-size: 11px;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text-muted);
+      font-weight: 500;
+      box-shadow: none;
+    }
+
+    .cam-btn:hover {
+      background: rgba(15, 23, 42, 0.05);
+      color: var(--text);
+    }
+
+    .cam-btn.active {
+      background: #0f172a;
+      color: #ffffff;
+      font-weight: 600;
+    }
+
+    /* FLOATING NOTIFICATION TOAST */
+    .toast-banner {
+      position: absolute;
+      top: 86px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-20px);
+      background: #0f172a;
+      color: #ffffff;
+      border-radius: 30px;
+      padding: 7px 18px;
+      font-size: 12px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.25);
+      z-index: 50;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .toast-banner.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* ACTIVITY LOG TERMINAL DRAWER */
+    .log-drawer {
+      position: absolute;
+      bottom: 68px;
+      right: 20px;
+      width: 420px;
+      height: 280px;
+      background: var(--card-glass-dark);
+      color: #f8fafc;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 14px;
+      padding: 12px 14px;
+      backdrop-filter: blur(28px);
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.3);
+      z-index: 35;
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .log-drawer.open { display: flex; }
+
+    .log-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding-bottom: 6px;
+      font-size: 11.5px;
+      font-weight: 600;
+    }
+
+    .log-content {
+      flex: 1;
+      overflow-y: auto;
+      font-family: var(--mono);
+      font-size: 10.5px;
+      line-height: 1.5;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding-right: 4px;
+    }
+
+    .log-item {
+      display: flex;
+      gap: 8px;
+    }
+
+    .log-time { color: #64748b; }
+    .log-tag { font-weight: 600; }
+    .tag-router { color: #c084fc; }
+    .tag-agent { color: #38bdf8; }
+    .tag-success { color: #4ade80; }
+    .tag-system { color: #facc15; }
+
+    /* INSPECTOR DRAWER */
+    .drawer {
+      position: absolute;
+      top: 76px;
+      right: 20px;
+      width: 330px;
+      z-index: 30;
+      background: var(--card-glass);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 18px;
+      backdrop-filter: blur(24px);
+      box-shadow: 0 12px 36px -5px rgba(15, 23, 42, 0.15);
+      display: none;
+      flex-direction: column;
+      gap: 13px;
+      animation: slideIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .drawer.open { display: flex; }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(14px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    .drawer-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--card-border);
+      padding-bottom: 12px;
+    }
+
+    .drawer-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .drawer-role {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .state-badge {
+      font-size: 10.5px;
+      font-weight: 600;
+      padding: 3px 9px;
+      border-radius: 20px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .badge-working {
+      background: #ecfdf5;
+      color: #047857;
+      border: 1px solid #a7f3d0;
+    }
+    .badge-wandering {
+      background: #fffbeb;
+      color: #b45309;
+      border: 1px solid #fde68a;
+    }
+    .badge-meeting {
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+    }
+
+    .info-card {
+      background: #ffffff;
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 9px 11px;
+      font-size: 11.5px;
+      color: var(--text-muted);
+      line-height: 1.45;
+    }
+
+    .info-val {
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .cli-box {
+      font-family: var(--mono);
+      font-size: 10.5px;
+      background: #0f172a;
+      color: #f8fafc;
+      padding: 7px 10px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .action-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+    .action-grid .btn {
+      justify-content: center;
+      font-size: 11px;
+      padding: 7px 6px;
+    }
+
+    /* SHORTCUTS MODAL */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.4);
+      backdrop-filter: blur(6px);
+      z-index: 100;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .modal-overlay.open { display: flex; }
+
+    .modal-content {
+      background: #ffffff;
+      border-radius: 14px;
+      padding: 22px;
+      max-width: 440px;
+      width: 100%;
+      box-shadow: 0 20px 40px -10px rgba(15, 23, 42, 0.2);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .shortcut-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      padding: 4px 0;
+      border-bottom: 1px solid rgba(15, 23, 42, 0.05);
+    }
+
+    .kbd {
+      font-family: var(--mono);
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-size: 10.5px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    /* Floor Ripple Target Indicator */
+    #floor-cursor-hint {
+      position: absolute;
+      top: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.85);
+      color: #ffffff;
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 500;
+      display: none;
+      align-items: center;
+      gap: 6px;
+      z-index: 20;
+      pointer-events: none;
+      backdrop-filter: blur(8px);
+    }
+  </style>
+
+  <script src="libs/three.min.js"></script>
+  <script src="libs/OrbitControls.js"></script>
+</head>
+<body>
+
+  <div id="webgl-canvas"></div>
+  <div id="speech-layer"></div>
+
+  <!-- Floor Click Destination Hint -->
+  <div id="floor-cursor-hint">
+    <span>🎯 Klik lantai untuk menggerakkan: <strong id="hint-agent-name">-</strong></span>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="toast-banner" id="toast-banner">
+    <span id="toast-icon">✨</span>
+    <span id="toast-msg">Pesan sistem</span>
+  </div>
+
+  <!-- Top Header Bar -->
+  <header>
+    <!-- Brand Info -->
+    <div class="glass-card">
+      <div class="brand-mark">C</div>
+      <div>
+        <div class="brand-title">Cahya Corp</div>
+        <div class="brand-sub">Hermes Autonomous Studio</div>
+      </div>
+    </div>
+
+    <!-- Smart AI Command Center (Spotlight) -->
+    <div class="smart-command-bar">
+      <div class="command-input-row">
+        <span class="ai-sparkle-icon">✨</span>
+        <input type="text" class="command-input" id="smart-prompt-input"
+          placeholder="Ketik tugas apa saja... (Otomatis diarahkan ke profil yang cocok)"
+          autocomplete="off">
+        <button class="btn-exec-smart" id="btn-smart-exec" onclick="submitSmartCommand()">
+          <span>🚀 Jalankan</span>
+        </button>
+      </div>
+      <div class="router-prediction-pill">
+        <span>Target Jobdesk:</span>
+        <span class="prediction-badge" id="predicted-badge">🤖 Otomatis Klasifikasi</span>
+      </div>
+    </div>
+
+    <!-- Global Actions -->
+    <div class="btn-group">
+      <button class="btn" id="btn-standup" onclick="toggleStandupMeeting()">👥 Standup</button>
+      <button class="btn" onclick="orderAllAgents('working')">💼 Kerja</button>
+      <button class="btn" onclick="orderAllAgents('wandering')">☕ Istirahat</button>
+      <button class="btn" onclick="toggleShortcutsModal()" title="Pintasan Keyboard">⌨️</button>
+      <button class="btn" id="btn-sound-toggle" onclick="toggleSound()" title="Efek Suara">🔊</button>
+    </div>
+  </header>
+
+  <!-- Left Controls (Roster & Shortcuts) -->
+  <div class="left-floating-controls">
+    <button class="btn" onclick="toggleRosterPopover()">👥 Daftar Spesialis (8)</button>
+    <div class="roster-popover" id="roster-popover">
+      <div style="font-size: 10px; text-transform: uppercase; font-weight: 700; color: var(--text-muted); margin-bottom: 2px;">
+        Pilih Spesialis
+      </div>
+      <div id="team-list" style="display: flex; flex-direction: column; gap: 4px;"></div>
+    </div>
+  </div>
+
+  <!-- Bottom Navigation & Studio Environment Dock -->
+  <div class="bottom-dock">
+    <!-- Camera Angles -->
+    <div class="dock-pill">
+      <button class="btn cam-btn active" id="cam-overview" onclick="setCamPreset('overview')">🏢 Ikhtisar</button>
+      <button class="btn cam-btn" id="cam-desks" onclick="setCamPreset('desks')">💻 Meja</button>
+      <button class="btn cam-btn" id="cam-lounge" onclick="setCamPreset('lounge')">☕ Lounge</button>
+      <button class="btn cam-btn" id="cam-standup" onclick="setCamPreset('standup')">📊 Papan</button>
+      <button class="btn cam-btn" id="cam-top" onclick="setCamPreset('top')">🗺️ Atas</button>
+    </div>
+
+    <!-- Lighting Atmosphere Modes -->
+    <div class="dock-pill">
+      <button class="btn cam-btn active" id="light-day" onclick="setLightingMode('day')">☀️ Siang</button>
+      <button class="btn cam-btn" id="light-sunset" onclick="setLightingMode('sunset')">🌇 Senja</button>
+      <button class="btn cam-btn" id="light-night" onclick="setLightingMode('night')">🌙 Malam</button>
+    </div>
+
+    <!-- Simulation Speed & Activity Log -->
+    <div class="dock-pill">
+      <button class="btn cam-btn active" id="spd-1x" onclick="setSimulationSpeed(1.0)">1x</button>
+      <button class="btn cam-btn" id="spd-2x" onclick="setSimulationSpeed(2.0)">2x</button>
+      <button class="btn cam-btn" id="spd-pause" onclick="toggleSimulationPause()">⏸️</button>
+      <span>•</span>
+      <button class="btn" style="padding: 4px 8px; font-size: 11px;" onclick="toggleLogDrawer()">📜 Log Studio</button>
+    </div>
+  </div>
+
+  <!-- Studio Activity Log Console Drawer -->
+  <div class="log-drawer" id="log-drawer">
+    <div class="log-header">
+      <span>📜 Log Aktivitas Studio & Router</span>
+      <button class="btn" style="padding: 2px 6px; font-size: 10px; background: transparent; color: #fff;" onclick="toggleLogDrawer()">&times;</button>
+    </div>
+    <div class="log-content" id="log-content">
+      <div class="log-item">
+        <span class="log-time">[00:00:00]</span>
+        <span class="log-tag tag-system">[SYSTEM]</span>
+        <span>Studio initialized. 8 Spesialis standby.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Inspector Drawer -->
+  <div class="drawer" id="agent-drawer">
+    <div class="drawer-header">
+      <div>
+        <div class="drawer-title" id="d-name">-</div>
+        <div class="drawer-role" id="d-role">-</div>
+      </div>
+      <div class="state-badge badge-wandering" id="d-badge">Keluyuran</div>
+    </div>
+
+    <div>
+      <div style="font-size: 10px; text-transform: uppercase; font-weight: 700; color: var(--text-muted); margin-bottom: 4px;">Lokasi & Aktivitas</div>
+      <div class="info-card">
+        <div>Lokasi: <span class="info-val" id="d-location">-</span></div>
+        <div style="margin-top: 4px;" id="d-activity">-</div>
+      </div>
+    </div>
+
+    <div>
+      <div style="font-size: 10px; text-transform: uppercase; font-weight: 700; color: var(--text-muted); margin-bottom: 4px;">Bidang & Spesialisasi</div>
+      <div class="info-card" id="d-tech">-</div>
+    </div>
+
+    <div>
+      <div style="font-size: 10px; text-transform: uppercase; font-weight: 700; color: var(--text-muted); margin-bottom: 4px;">Tugaskan Langsung</div>
+      <div style="display: flex; gap: 6px;">
+        <input type="text" class="input-box" id="d-task-input" placeholder="Perintah khusus profil ini..." style="flex: 1; font-size: 11px; padding: 6px 8px; border: 1px solid var(--card-border); border-radius: 6px;">
+        <button class="btn btn-dark" style="white-space: nowrap; padding: 6px 10px;" id="btn-run-agent" onclick="runDirectAgentTask()">🚀 Kirim</button>
+      </div>
+    </div>
+
+    <div>
+      <div style="font-size: 10px; text-transform: uppercase; font-weight: 700; color: var(--text-muted); margin-bottom: 4px;">Output Terakhir Hermes CLI</div>
+      <div class="info-card" id="d-output" style="max-height: 85px; overflow-y: auto; font-family: var(--mono); font-size: 10.5px; background: #fafafa;">-</div>
+    </div>
+
+    <div>
+      <div style="font-size: 10px; text-transform: uppercase; font-weight: 700; color: var(--text-muted); margin-bottom: 4px;">Aksi Kendali Cepat</div>
+      <div class="action-grid">
+        <button class="btn" onclick="sendSelectedTo('desk')">💻 Ke Meja</button>
+        <button class="btn" onclick="sendSelectedTo('wander')">🚶 Keluyuran</button>
+        <button class="btn" onclick="sendSelectedTo('pantry')">☕ Ke Pantry</button>
+        <button class="btn" onclick="sendSelectedTo('window')">🌳 Ke Jendela</button>
+        <button class="btn" onclick="sendSelectedTo('meeting')">💡 Meja Rapat</button>
+        <button class="btn" onclick="sendSelectedTo('kanban')">📋 Papan Kanban</button>
+      </div>
+      <button class="btn btn-dark" style="width: 100%; margin-top: 6px; justify-content: center;" id="btn-follow-toggle" onclick="toggleFollowSelected()">
+        📹 Ikuti dengan Kamera
+      </button>
+    </div>
+
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+      <span style="font-size: 10px; color: #10b981;">● Bridge Server Aktif</span>
+      <button class="btn" onclick="closeDrawer()">Tutup</button>
+    </div>
+  </div>
+
+  <!-- Keyboard Shortcuts Cheat-sheet Modal -->
+  <div class="modal-overlay" id="shortcuts-modal">
+    <div class="modal-content">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 style="font-size: 14px; font-weight: 700;">⌨️ Pintasan Keyboard & Kendali 3D</h3>
+        <button class="btn" style="padding: 2px 7px;" onclick="toggleShortcutsModal()">&times;</button>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <div class="shortcut-row"><span>Navigasi Geser Kamera</span><div><span class="kbd">W</span> <span class="kbd">A</span> <span class="kbd">S</span> <span class="kbd">D</span></div></div>
+        <div class="shortcut-row"><span>Putar Sudut Kamera</span><div><span class="kbd">Q</span> / <span class="kbd">E</span></div></div>
+        <div class="shortcut-row"><span>Fokus ke Agen Terpilih</span><span class="kbd">F</span></div>
+        <div class="shortcut-row"><span>Reset Kamera ke Ikhtisar</span><span class="kbd">R</span></div>
+        <div class="shortcut-row"><span>Fokus Langsung Spesialis (8 Peran)</span><div><span class="kbd">1</span> sampai <span class="kbd">8</span></div></div>
+        <div class="shortcut-row"><span>Navigasi Preset Kamera</span><span>Gunakan Bilah Dock Bawah</span></div>
+        <div class="shortcut-row"><span>Jeda / Lanjutkan Animasi</span><span class="kbd">Spasi</span></div>
+        <div class="shortcut-row"><span>Gerakkan Agen ke Titik Tertentu</span><span>Pilih agen, lalu <strong>Klik Lantai</strong></span></div>
+      </div>
+      <div style="display: flex; justify-content: flex-end;">
+        <button class="btn btn-dark" onclick="toggleShortcutsModal()">Mengerti</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // -------------------------------------------------------------
+    // Agent Definitions & Multi-Agent Autonomous Data
+    // -------------------------------------------------------------
+    const agentData = [
+      {
+        id: "pm",
+        name: "Tech Lead",
+        shortName: "Lead",
+        role: "Product Manager",
+        alias: "pm",
+        shirtColor: 0x1e293b,
+        pantsColor: 0x475569,
+        hairColor: 0x18181b,
+        deskPos: [-6.8, 0, -3.8],
+        deskFacing: 0,
+        state: "wandering",
+        tech: "PRD, Scope Management, Sprint Planning, Architecture Roadmaps",
+        workingThoughts: ["Menyusun user story & milestone sprint...", "Review acceptance criteria tim...", "Sinkronisasi prioritas fitur dengan klien"],
+        wanderThoughts: ["Ngecek papan Kanban sebentar...", "Ngopi dulu biar kepala fresh ☕", "Mikirin estimasi sprint depan..."]
+      },
+      {
+        id: "uiux",
+        name: "UI/UX Lead",
+        shortName: "UI/UX",
+        role: "Design Systems",
+        alias: "uiux",
+        shirtColor: 0xc2410c,
+        pantsColor: 0x1e293b,
+        hairColor: 0x3f3f46,
+        deskPos: [-3.2, 0, -3.8],
+        deskFacing: 0,
+        state: "wandering",
+        tech: "Figma Tokens, WCAG AA, Radix UI Specs, Responsive Layouts",
+        workingThoughts: ["Bikin komponen Button & Dialog baru...", "Cek rasio kontras warna tombol...", "Eksplorasi micro-interaction di Figma"],
+        wanderThoughts: ["Lagi nyari inspirasi palet warna di majalah...", "Keluyuran ke lounge sambil sketch ide 🎨", "Ngecek pencahayaan ruangan..."]
+      },
+      {
+        id: "frontend",
+        name: "Frontend Dev",
+        shortName: "Frontend",
+        role: "Client & Web UI",
+        alias: "frontend",
+        shirtColor: 0x2563eb,
+        pantsColor: 0x0f172a,
+        hairColor: 0x27272a,
+        deskPos: [0.4, 0, -3.8],
+        deskFacing: 0,
+        state: "wandering",
+        tech: "React 19, Next.js 15, TypeScript, Tailwind CSS, TanStack Query",
+        workingThoughts: ["Optimasi render tree Next.js App Router...", "Refactor custom hook useAuth()...", "Ngerapihin styling responsive mobile"],
+        wanderThoughts: ["Nunggu endpoint backend ready...", "Nyamperin pantry ambil biskuit 🍪", "Ngobrol sama Tech Lead soal API contract..."]
+      },
+      {
+        id: "backend",
+        name: "Backend Dev",
+        shortName: "Backend",
+        role: "API & Microservices",
+        alias: "backend",
+        shirtColor: 0x059669,
+        pantsColor: 0x1e293b,
+        hairColor: 0x18181b,
+        deskPos: [4.0, 0, -3.8],
+        deskFacing: 0,
+        state: "wandering",
+        tech: "Node.js, Express, FastAPI, JWT, Redis Caching, OpenAPI",
+        workingThoughts: ["Implementasi refresh token rotation...", "Nulis middleware rate limiting Redis...", "Validasi schema payload dengan Zod"],
+        wanderThoughts: ["Bikin espresso double shot dulu ☕", "Ngecek latensi server sambil santai...", "Peregangan tangan bentar biar gak kaku..."]
+      },
+      {
+        id: "database",
+        name: "DB Architect",
+        shortName: "Database",
+        role: "Data & Storage",
+        alias: "database",
+        shirtColor: 0x0284c7,
+        pantsColor: 0x1e293b,
+        hairColor: 0x292524,
+        deskPos: [-6.8, 0, 3.8],
+        deskFacing: Math.PI,
+        state: "wandering",
+        tech: "PostgreSQL, Prisma, Drizzle ORM, Migration Scripts, Indexing",
+        workingThoughts: ["Optimasi query EXPLAIN ANALYZE...", "Menulis migrasi skema tabel transaksi...", "Setup replica read database"],
+        wanderThoughts: ["Lagi mikirin arsitektur sharding...", "Keluyuran ke dispenser air...", "Santai di sofa baca dokumentasi Drizzle..."]
+      },
+      {
+        id: "devops",
+        name: "DevOps Eng",
+        shortName: "DevOps",
+        role: "Cloud & Infrastructure",
+        alias: "devops",
+        shirtColor: 0xd97706,
+        pantsColor: 0x292524,
+        hairColor: 0x3f3f46,
+        deskPos: [-3.2, 0, 3.8],
+        deskFacing: Math.PI,
+        state: "wandering",
+        tech: "Docker Multi-stage, GitHub Actions CI/CD, Nginx SSL, Kubernetes",
+        workingThoughts: ["Pangkas ukuran Docker image ke 80MB...", "Setup automated rollback di GitHub Actions...", "Cek health check pods di cluster"],
+        wanderThoughts: ["Pipeline CI/CD udah hijau semua! 🎉", "Ngopi santai di lounge...", "Melihat pemandangan luar jendela 🌳"]
+      },
+      {
+        id: "qa",
+        name: "QA Specialist",
+        shortName: "QA",
+        role: "Test Automation",
+        alias: "qa",
+        shirtColor: 0x4f46e5,
+        pantsColor: 0x1e293b,
+        hairColor: 0x18181b,
+        deskPos: [0.4, 0, 3.8],
+        deskFacing: Math.PI,
+        state: "wandering",
+        tech: "Playwright E2E, Vitest, Mock Service Worker, Regression Suites",
+        workingThoughts: ["Nulis automated test skenario checkout...", "Test boundary condition form registrasi...", "Verifikasi UI test di berbagai viewport"],
+        wanderThoughts: ["Semua test suite passed 100%! 👍", "Jalan-jalan santai keliling kantor...", "Ngobrol sama Frontend Dev soal bug minor..."]
+      },
+      {
+        id: "security",
+        name: "AppSec Lead",
+        shortName: "Security",
+        role: "Security & OWASP",
+        alias: "security",
+        shirtColor: 0x9f1239,
+        pantsColor: 0x18181b,
+        hairColor: 0x27272a,
+        deskPos: [4.0, 0, 3.8],
+        deskFacing: Math.PI,
+        state: "wandering",
+        tech: "OWASP Top 10, CSP Headers, Dependency Vulnerability Audit, CORS",
+        workingThoughts: ["Audit sanitasi input SQL injection...", "Konfigurasi header Content-Security-Policy...", "Scan CVE dependensi npm"],
+        wanderThoughts: ["Audit sistem bersih, no critical bug 🛡️", "Menikmati teh hangat di pantry 🍵", "Keluyuran ngecek whiteboard..."]
+      }
+    ];
+
+    const wanderSpots = [
+      { name: "Pantry Espresso", pos: [13.2, 0, -11.0], facing: -Math.PI / 2, thought: "Bikin kopi espresso segar ☕" },
+      { name: "Sofa Lounge", pos: [13.5, 0, -4.5], facing: -Math.PI / 4, thought: "Santai di sofa baca berita 📱" },
+      { name: "Papan Kanban", pos: [-11.5, 0, -1.0], facing: Math.PI / 2, thought: "Ngecek daftar kartu tugas 📋" },
+      { name: "Teras Jendela Kaca", pos: [17.0, 0, 2.0], facing: Math.PI / 2, thought: "Menikmati pemandangan taman 🌳" },
+      { name: "Dispenser Air", pos: [9.5, 0, -11.5], facing: -Math.PI / 2, thought: "Minum air putih dulu 💧" },
+      { name: "Lorong Barat", pos: [-9.5, 0, 4.0], facing: -Math.PI / 2, thought: "Peregangan santai sejenak 🚶" },
+      { name: "Meja Rapat Bundar", pos: [0.0, 0, 0.0], facing: 0, thought: "Duduk santai di meja bundar 💡" }
+    ];
+
+    const standupPositions = [
+      { pos: [-1.9, 0, -1.9], facing: Math.PI * 0.25 },
+      { pos: [0.0, 0, -2.5], facing: 0 },
+      { pos: [1.9, 0, -1.9], facing: -Math.PI * 0.25 },
+      { pos: [2.5, 0, 0.0], facing: -Math.PI * 0.5 },
+      { pos: [1.9, 0, 1.9], facing: -Math.PI * 0.75 },
+      { pos: [0.0, 0, 2.5], facing: Math.PI },
+      { pos: [-1.9, 0, 1.9], facing: Math.PI * 0.75 },
+      { pos: [-2.5, 0, 0.0], facing: Math.PI * 0.5 }
+    ];
+
+    // Advanced Reactive Intent Classifier (Zero-latency client NLP)
+    function predictProfilesClient(text) {
+      if (!text || text.trim().length < 2) return null;
+      const p = text.toLowerCase();
+
+      const has_db = /(db|database|sql|postgres|postgresql|mysql|mongodb|prisma|drizzle|skema|schema|tabel|table|query|migrasi|migration|redis)/.test(p);
+      const has_fe = /(frontend|react|next|nextjs|tailwind|css|html|komponen|component|button|modal|navbar|form|halaman|page|slicing|responsive|tampilan|antarmuka|ui|web|menu|header|footer)/.test(p);
+      const has_be = /(backend|api|rest|endpoint|controller|service|middleware|express|fastapi|jwt|auth|login|register|token|server|crud|upload)/.test(p);
+      const has_devops = /(docker|container|ci\/cd|pipeline|deploy|deployment|github actions|hosting|nginx|ssl|vps|cloud|aws|k8s|kubernetes)/.test(p);
+      const has_sec = /(security|keamanan|audit|owasp|vulnerability|celah|xss|sql injection|csrf|enkripsi|sanitize|proteksi)/.test(p);
+      const has_qa = /(test|testing|uji|pengujian|e2e|unit test|playwright|vitest|bug|verifikasi)/.test(p);
+      const has_design = /(desain|design|figma|wireframe|mockup|warna|kontras|layout|ux|user flow|interaksi)/.test(p);
+      const has_pm = /(prd|roadmap|sprint|backlog|user story|scope|requirement|jadwal|rencana)/.test(p);
+
+      const is_full_feature = /(buatkan|buat|bikin|fitur|sistem|aplikasi|website|toko|ecommerce|platform|modul)/.test(p);
+      const is_broad = /(full stack|fullstack|keseluruhan|lengkap|seluruh tim|semua)/.test(p);
+
+      let matched = [];
+      if (is_broad) {
+        matched = ["pm", "uiux", "frontend", "backend", "database", "devops", "qa", "security"];
+        return { profiles: matched, label: "Seluruh Tim (Full-Stack Multi-Agent)" };
+      }
+
+      if (has_db) matched.push("database");
+      if (has_fe) matched.push("frontend");
+      if (has_be) matched.push("backend");
+      if (has_devops) matched.push("devops");
+      if (has_sec) matched.push("security");
+      if (has_qa) matched.push("qa");
+      if (has_design) matched.push("uiux");
+      if (has_pm) matched.push("pm");
+
+      if (is_full_feature) {
+        if (matched.length === 0) {
+          matched = ["pm", "uiux", "frontend", "backend", "database", "qa"];
+        } else {
+          if (matched.includes("backend") && !matched.includes("database")) matched.push("database");
+          if (matched.includes("frontend") && !matched.includes("uiux") && p.includes("buat")) matched.push("uiux");
+        }
+      }
+
+      if (matched.length === 0) matched = ["pm"];
+
+      const names = matched.map(pid => {
+        const ag = agentData.find(a => a.alias === pid);
+        return ag ? ag.name : pid;
+      });
+
+      return { profiles: matched, label: names.join(", ") };
+    }
+
+    // -------------------------------------------------------------
+    // Procedural Warm Scandinavian Oak Floor Texture
+    // -------------------------------------------------------------
+    function createWarmOakTexture() {
+      const cv = document.createElement("canvas");
+      cv.width = 1024;
+      cv.height = 1024;
+      const ctx = cv.getContext("2d");
+
+      ctx.fillStyle = "#baa282";
+      ctx.fillRect(0, 0, 1024, 1024);
+
+      const plankW = 128;
+      const plankH = 32;
+      for (let y = 0; y < 1024; y += plankH) {
+        const offset = (Math.floor(y / plankH) % 2) * (plankW / 2);
+        for (let x = -offset; x < 1024; x += plankW) {
+          const shade = Math.floor(Math.random() * 24 - 12);
+          const r = 186 + shade;
+          const g = 162 + shade;
+          const b = 130 + Math.floor(shade * 0.8);
+          ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+          ctx.fillRect(x + 1, y + 1, plankW - 2, plankH - 2);
+
+          ctx.fillStyle = "rgba(70, 50, 30, 0.06)";
+          ctx.fillRect(x + 4, y + 8, plankW - 8, 1);
+          ctx.fillRect(x + 6, y + 18, plankW - 12, 1);
+          ctx.fillRect(x + 2, y + 26, plankW - 6, 1);
+        }
+      }
+
+      ctx.strokeStyle = "rgba(60, 45, 30, 0.28)";
+      ctx.lineWidth = 1.5;
+      for (let y = 0; y < 1024; y += plankH) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(1024, y);
+        ctx.stroke();
+      }
+
+      const texture = new THREE.CanvasTexture(cv);
+      texture.wrapS = THREE.RepeatWrapping;
+      texture.wrapT = THREE.RepeatWrapping;
+      texture.repeat.set(4, 3);
+      return texture;
+    }
+
+    // -------------------------------------------------------------
+    // Web Audio Synthesizer (Zero External Audio Files Needed)
+    // -------------------------------------------------------------
+    let audioCtx = null;
+    let soundEnabled = true;
+
+    function initAudio() {
+      if (!audioCtx) {
+        const AudioClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioClass) audioCtx = new AudioClass();
+      }
+    }
+
+    function playSound(type) {
+      if (!soundEnabled) return;
+      initAudio();
+      if (!audioCtx) return;
+
+      try {
+        const now = audioCtx.currentTime;
+        if (type === "click") {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(800, now);
+          osc.frequency.exponentialRampToValueAtTime(300, now + 0.05);
+          gain.gain.setValueAtTime(0.08, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now);
+          osc.stop(now + 0.05);
+        } else if (type === "chime") {
+          [523.25, 659.25, 783.99].forEach((freq, idx) => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = "triangle";
+            osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+            gain.gain.setValueAtTime(0.12, now + idx * 0.08);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.35);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(now + idx * 0.08);
+            osc.stop(now + idx * 0.08 + 0.35);
+          });
+        }
+      } catch (e) {}
+    }
+
+    function toggleSound() {
+      soundEnabled = !soundEnabled;
+      const btn = document.getElementById("btn-sound-toggle");
+      btn.innerText = soundEnabled ? "🔊" : "🔇";
+      showToast(soundEnabled ? "🔊 Suara diaktifkan" : "🔇 Suara dimatikan");
+    }
+
+    // -------------------------------------------------------------
+    // Three.js Scene Setup & Architecture
+    // -------------------------------------------------------------
+    const container = document.getElementById("webgl-canvas");
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xdce5ef);
+
+    const camera = new THREE.PerspectiveCamera(32, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 18, 25);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: "high-performance" });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.05;
+    container.appendChild(renderer.domElement);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.06;
+    controls.maxPolarAngle = Math.PI / 2.15;
+    controls.minDistance = 5;
+    controls.maxDistance = 60;
+    controls.target.set(-0.5, 0.9, 0);
+
+    // Dynamic Lighting Setup
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.45);
+    scene.add(ambientLight);
+
+    const sun = new THREE.DirectionalLight(0xfff8ee, 0.75);
+    sun.position.set(16, 26, 18);
+    sun.castShadow = true;
+    sun.shadow.mapSize.width = 2048;
+    sun.shadow.mapSize.height = 2048;
+    sun.shadow.camera.near = 1;
+    sun.shadow.camera.far = 75;
+    sun.shadow.camera.left = -22;
+    sun.shadow.camera.right = 22;
+    sun.shadow.camera.top = 22;
+    sun.shadow.camera.bottom = -22;
+    sun.shadow.bias = -0.0004;
+    scene.add(sun);
+
+    const softFill = new THREE.DirectionalLight(0xcfdbe6, 0.3);
+    softFill.position.set(-18, 12, -14);
+    scene.add(softFill);
+
+    // Warm ceiling spot lights (active in night mode)
+    const ceilingLights = [];
+    [[-5, 4.5, -2], [3, 4.5, -2], [-5, 4.5, 2], [3, 4.5, 2]].forEach(([lx, ly, lz]) => {
+      const pl = new THREE.PointLight(0xffecd1, 0, 14);
+      pl.position.set(lx, ly, lz);
+      scene.add(pl);
+      ceilingLights.push(pl);
+    });
+
+    // Floor Mesh (Used for Walk-Here Raycasting)
+    const floorGeo = new THREE.PlaneGeometry(42, 28);
+    const floorMat = new THREE.MeshStandardMaterial({
+      map: createWarmOakTexture(),
+      roughness: 0.45,
+      metalness: 0.05
+    });
+    const floor = new THREE.Mesh(floorGeo, floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    // Destination Ripple Indicator Ring on Floor
+    const rippleGeo = new THREE.RingGeometry(0.3, 0.5, 32);
+    const rippleMat = new THREE.MeshBasicMaterial({ color: 0x2563eb, side: THREE.DoubleSide, transparent: true, opacity: 0 });
+    const targetRipple = new THREE.Mesh(rippleGeo, rippleMat);
+    targetRipple.rotation.x = -Math.PI / 2;
+    targetRipple.position.y = 0.02;
+    scene.add(targetRipple);
+
+    // Rug & Skirting Boards
+    const rug = new THREE.Mesh(
+      new THREE.PlaneGeometry(16.5, 14),
+      new THREE.MeshStandardMaterial({ color: 0xede8df, roughness: 0.95 })
+    );
+    rug.rotation.x = -Math.PI / 2;
+    rug.position.set(-1.4, 0.015, 0);
+    rug.receiveShadow = true;
+    scene.add(rug);
+
+    const baseboardMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.3 });
+    const b1 = new THREE.Mesh(new THREE.BoxGeometry(42, 0.22, 0.12), baseboardMat);
+    b1.position.set(0, 0.11, -12.95);
+    const b2 = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.22, 28), baseboardMat);
+    b2.position.set(-20.95, 0.11, 0);
+    scene.add(b1, b2);
+
+    // Walls & Wood Slats
+    const wallMat = new THREE.MeshStandardMaterial({ color: 0xf5f5f7, roughness: 0.85 });
+    const backWall = new THREE.Mesh(new THREE.BoxGeometry(42, 8, 0.4), wallMat);
+    backWall.position.set(0, 4, -13.2);
+    backWall.receiveShadow = true;
+    scene.add(backWall);
+
+    const leftWall = new THREE.Mesh(new THREE.BoxGeometry(0.4, 8, 28), wallMat);
+    leftWall.position.set(-21.2, 4, 0);
+    leftWall.receiveShadow = true;
+    scene.add(leftWall);
+
+    const slatMat = new THREE.MeshStandardMaterial({ color: 0xa88b6f, roughness: 0.6 });
+    for (let x = -13.5; x <= -0.5; x += 0.35) {
+      const slat = new THREE.Mesh(new THREE.BoxGeometry(0.16, 5.5, 0.08), slatMat);
+      slat.position.set(x, 4.25, -12.95);
+      slat.castShadow = true;
+      scene.add(slat);
+    }
+
+    // Logo Signboard
+    const signGroup = new THREE.Group();
+    signGroup.position.set(-7, 5.2, -12.85);
+    const signBg = new THREE.Mesh(
+      new THREE.BoxGeometry(6.2, 1.25, 0.08),
+      new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2 })
+    );
+    signGroup.add(signBg);
+    const signLogo = new THREE.Mesh(
+      new THREE.BoxGeometry(0.7, 0.7, 0.12),
+      new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.2 })
+    );
+    signLogo.position.set(-2.2, 0, 0.04);
+    signGroup.add(signLogo);
+    scene.add(signGroup);
+
+    // Panoramic Window
+    const glassMat = new THREE.MeshPhysicalMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.18,
+      roughness: 0.04,
+      transmission: 0.85,
+      reflectivity: 0.6
+    });
+    const windowGlass = new THREE.Mesh(new THREE.BoxGeometry(0.15, 7.8, 26), glassMat);
+    windowGlass.position.set(20.9, 4, 0);
+    scene.add(windowGlass);
+
+    const darkFrameMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.3 });
+    for (let z = -12; z <= 12; z += 5.2) {
+      const frame = new THREE.Mesh(new THREE.BoxGeometry(0.28, 8, 0.16), darkFrameMat);
+      frame.position.set(20.85, 4, z);
+      scene.add(frame);
+    }
+
+    // Outdoor Garden
+    const terrace = new THREE.Mesh(
+      new THREE.PlaneGeometry(16, 28),
+      new THREE.MeshStandardMaterial({ color: 0x7da876, roughness: 0.9 })
+    );
+    terrace.rotation.x = -Math.PI / 2;
+    terrace.position.set(29, 0.01, 0);
+    scene.add(terrace);
+
+    for (let i = 0; i < 9; i++) {
+      const trunk = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.12, 0.18, 3.8),
+        new THREE.MeshStandardMaterial({ color: 0x5c4a3b, roughness: 0.8 })
+      );
+      trunk.position.set(25 + (i % 2) * 2.5, 1.9, -11 + i * 2.8);
+      trunk.castShadow = true;
+      scene.add(trunk);
+
+      const foliage = new THREE.Mesh(
+        new THREE.DodecahedronGeometry(1.45),
+        new THREE.MeshStandardMaterial({ color: 0x4d7c0f, roughness: 0.8 })
+      );
+      foliage.position.set(25 + (i % 2) * 2.5, 4.0, -11 + i * 2.8);
+      foliage.castShadow = true;
+      scene.add(foliage);
+    }
+
+    // Central Conference Round Table
+    const confTable = new THREE.Mesh(
+      new THREE.CylinderGeometry(2.3, 2.3, 0.1, 36),
+      new THREE.MeshStandardMaterial({ color: 0xfcfcfc, roughness: 0.25 })
+    );
+    confTable.position.set(0, 1.05, 0);
+    confTable.castShadow = true;
+    confTable.receiveShadow = true;
+    scene.add(confTable);
+
+    const confLeg = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.26, 0.26, 1.05, 16),
+      new THREE.MeshStandardMaterial({ color: 0x64748b })
+    );
+    confLeg.position.set(0, 0.525, 0);
+    scene.add(confLeg);
+
+    const centerpiece = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.35, 0.25, 0.18, 16),
+      new THREE.MeshStandardMaterial({ color: 0x334155 })
+    );
+    centerpiece.position.set(0, 1.15, 0);
+    scene.add(centerpiece);
+
+    // Kanban Whiteboard
+    const boardGroup = new THREE.Group();
+    boardGroup.position.set(-12.0, 0, -1.0);
+    boardGroup.rotation.y = Math.PI / 2;
+
+    const boardFrame = new THREE.Mesh(
+      new THREE.BoxGeometry(4.0, 2.5, 0.08),
+      new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.3 })
+    );
+    boardFrame.position.set(0, 2.0, 0);
+    boardFrame.castShadow = true;
+    boardGroup.add(boardFrame);
+
+    const boardStand1 = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 2.0), darkFrameMat);
+    boardStand1.position.set(-1.8, 1.0, 0);
+    const boardStand2 = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 2.0), darkFrameMat);
+    boardStand2.position.set(1.8, 1.0, 0);
+    boardGroup.add(boardStand1, boardStand2);
+
+    const noteColors = [0xfef08a, 0xbfdbfe, 0xbbf7d0, 0xfecdd3];
+    for (let c = 0; c < 8; c++) {
+      const note = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.32, 0.32),
+        new THREE.MeshBasicMaterial({ color: noteColors[c % noteColors.length] })
+      );
+      note.position.set(-1.4 + (c % 4) * 0.8, 2.3 - Math.floor(c / 4) * 0.65, 0.05);
+      boardGroup.add(note);
+    }
+    scene.add(boardGroup);
+
+    // Break Lounge & Barista Pantry
+    const sofaMat = new THREE.MeshStandardMaterial({ color: 0xd1ccc0, roughness: 0.9 });
+    const sofaBase = new THREE.Mesh(new THREE.BoxGeometry(5.6, 0.55, 2.0), sofaMat);
+    sofaBase.position.set(13.5, 0.28, -6.5);
+    sofaBase.castShadow = true;
+    scene.add(sofaBase);
+
+    const sofaBack = new THREE.Mesh(new THREE.BoxGeometry(5.6, 0.65, 0.4), sofaMat);
+    sofaBack.position.set(13.5, 0.68, -7.3);
+    sofaBack.castShadow = true;
+    scene.add(sofaBack);
+
+    const pillowMat1 = new THREE.MeshStandardMaterial({ color: 0x9a3412, roughness: 0.9 });
+    const pillowMat2 = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.9 });
+    const p1 = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.55, 0.2), pillowMat1);
+    p1.position.set(11.5, 0.65, -6.8);
+    p1.rotation.y = 0.2;
+    const p2 = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.55, 0.2), pillowMat2);
+    p2.position.set(15.5, 0.65, -6.8);
+    p2.rotation.y = -0.2;
+    scene.add(p1, p2);
+
+    const coffeeTable = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.95, 0.95, 0.35, 28),
+      new THREE.MeshStandardMaterial({ color: 0x5c4a3b, roughness: 0.5 })
+    );
+    coffeeTable.position.set(13.5, 0.175, -4.5);
+    coffeeTable.castShadow = true;
+    scene.add(coffeeTable);
+
+    const barCounter = new THREE.Mesh(
+      new THREE.BoxGeometry(3.6, 1.1, 1.4),
+      new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.4 })
+    );
+    barCounter.position.set(13.2, 0.55, -11.0);
+    barCounter.castShadow = true;
+    scene.add(barCounter);
+
+    const espressoMachine = new THREE.Mesh(
+      new THREE.BoxGeometry(0.9, 0.68, 0.65),
+      new THREE.MeshStandardMaterial({ color: 0xd4d4d8, metalness: 0.6, roughness: 0.2 })
+    );
+    espressoMachine.position.set(13.2, 1.44, -11.0);
+    espressoMachine.castShadow = true;
+    scene.add(espressoMachine);
+
+    const waterDisp = new THREE.Mesh(
+      new THREE.BoxGeometry(0.55, 1.4, 0.55),
+      new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.3 })
+    );
+    waterDisp.position.set(9.5, 0.7, -11.5);
+    waterDisp.castShadow = true;
+    scene.add(waterDisp);
+
+    // Plants
+    function createPlant(x, z) {
+      const pot = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.42, 0.34, 0.85, 20),
+        new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4 })
+      );
+      pot.position.set(x, 0.425, z);
+      pot.castShadow = true;
+      scene.add(pot);
+
+      const leafGroup = new THREE.Group();
+      leafGroup.position.set(x, 1.15, z);
+      for (let l = 0; l < 8; l++) {
+        const leaf = new THREE.Mesh(
+          new THREE.DodecahedronGeometry(0.46),
+          new THREE.MeshStandardMaterial({ color: 0x2e7d32, roughness: 0.7 })
+        );
+        const ang = (l / 8) * Math.PI * 2;
+        leaf.position.set(Math.cos(ang) * 0.38, (l % 2) * 0.22, Math.sin(ang) * 0.38);
+        leaf.scale.set(1.1, 0.4, 1.4);
+        leaf.rotation.y = ang;
+        leaf.castShadow = true;
+        leafGroup.add(leaf);
+      }
+      scene.add(leafGroup);
+    }
+    createPlant(-19, -11);
+    createPlant(-19, 10);
+    createPlant(7.5, -11.5);
+    createPlant(18, 10);
+
+    // -------------------------------------------------------------
+    // Build Stylized 3D Character Rigs & Workstation Desks
+    // -------------------------------------------------------------
+    const clickableHitboxes = [];
+    const agentControllers = [];
+
+    function createCodeScreenTexture(colorHex) {
+      const cv = document.createElement("canvas");
+      cv.width = 256;
+      cv.height = 144;
+      const ctx = cv.getContext("2d");
+      ctx.fillStyle = "#0f172a";
+      ctx.fillRect(0, 0, 256, 144);
+      ctx.fillStyle = colorHex || "#38bdf8";
+      ctx.font = "11px monospace";
+      ctx.fillText("> import { agent } from 'hermes'", 10, 26);
+      ctx.fillText("> const state = await ready()", 10, 48);
+      ctx.fillText("> executePipeline({ run: true })", 10, 70);
+      ctx.fillText("✓ 100% tests passing", 10, 92);
+      const texture = new THREE.CanvasTexture(cv);
+      return texture;
+    }
+
+    const deskTopMat = new THREE.MeshStandardMaterial({ color: 0xc8b293, roughness: 0.4 });
+    const deskLegMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.3 });
+    const monitorMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.2 });
+    const skinMat = new THREE.MeshStandardMaterial({ color: 0xfbd0b0, roughness: 0.5 });
+    const shoeMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 });
+
+    agentData.forEach((agent) => {
+      // Workstation Desk
+      const deskGroup = new THREE.Group();
+      deskGroup.position.set(agent.deskPos[0], agent.deskPos[1], agent.deskPos[2]);
+      deskGroup.rotation.y = agent.deskFacing;
+
+      const deskTop = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.08, 1.25), deskTopMat);
+      deskTop.position.set(0, 1.05, 0);
+      deskTop.castShadow = true;
+      deskTop.receiveShadow = true;
+      deskGroup.add(deskTop);
+
+      const divider = new THREE.Mesh(
+        new THREE.BoxGeometry(2.3, 0.55, 0.05),
+        new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.9 })
+      );
+      divider.position.set(0, 1.325, -0.6);
+      divider.castShadow = true;
+      deskGroup.add(divider);
+
+      const legGeo = new THREE.CylinderGeometry(0.035, 0.035, 1.05, 12);
+      [-1.02, 1.02].forEach(lx => {
+        [-0.5, 0.5].forEach(lz => {
+          const leg = new THREE.Mesh(legGeo, deskLegMat);
+          leg.position.set(lx, 0.525, lz);
+          deskGroup.add(leg);
+        });
+      });
+
+      [-0.55, 0.55].forEach(mx => {
+        const mon = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.55, 0.04), monitorMat);
+        mon.position.set(mx, 1.55, -0.32);
+        mon.rotation.y = mx < 0 ? 0.08 : -0.08;
+        mon.castShadow = true;
+        deskGroup.add(mon);
+
+        const screen = new THREE.Mesh(
+          new THREE.PlaneGeometry(0.85, 0.5),
+          new THREE.MeshBasicMaterial({ map: createCodeScreenTexture(agent.shirtColor === 0x2563eb ? "#60a5fa" : "#34d399") })
+        );
+        screen.position.set(mx, 1.55, -0.29);
+        screen.rotation.y = mx < 0 ? 0.08 : -0.08;
+        deskGroup.add(screen);
+
+        const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.45), deskLegMat);
+        stand.position.set(mx, 1.25, -0.32);
+        deskGroup.add(stand);
+      });
+
+      const kb = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.02, 0.22), new THREE.MeshStandardMaterial({ color: 0x0f172a }));
+      kb.position.set(0, 1.1, 0.1);
+      deskGroup.add(kb);
+
+      const mug = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.05, 0.11, 12), new THREE.MeshStandardMaterial({ color: 0xd97706 }));
+      mug.position.set(0.68, 1.15, 0.15);
+      deskGroup.add(mug);
+
+      const chairGroup = new THREE.Group();
+      chairGroup.position.set(0, 0, 0.58);
+      const chairSeat = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.08, 0.72), new THREE.MeshStandardMaterial({ color: 0x1e293b }));
+      chairSeat.position.set(0, 0.65, 0);
+      const chairBack = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.75, 0.07), new THREE.MeshStandardMaterial({ color: 0x1e293b }));
+      chairBack.position.set(0, 1.05, 0.34);
+      chairGroup.add(chairSeat, chairBack);
+
+      const chairPillar = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.6), deskLegMat);
+      chairPillar.position.set(0, 0.3, 0);
+      chairGroup.add(chairPillar);
+      deskGroup.add(chairGroup);
+
+      scene.add(deskGroup);
+
+      // Autonomous Humanoid Character Rig
+      const charRoot = new THREE.Group();
+      charRoot.position.set(agent.deskPos[0], 0, agent.deskPos[2]);
+      scene.add(charRoot);
+
+      const shirtMat = new THREE.MeshStandardMaterial({ color: agent.shirtColor, roughness: 0.6 });
+      const pantsMat = new THREE.MeshStandardMaterial({ color: agent.pantsColor, roughness: 0.7 });
+      const hairMat = new THREE.MeshStandardMaterial({ color: agent.hairColor, roughness: 0.8 });
+
+      const bodyGroup = new THREE.Group();
+      bodyGroup.position.y = 0.95;
+      charRoot.add(bodyGroup);
+
+      const torso = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.65, 0.3), shirtMat);
+      torso.position.y = 0.325;
+      torso.castShadow = true;
+      bodyGroup.add(torso);
+
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.24, 20, 20), skinMat);
+      head.position.y = 0.85;
+      head.castShadow = true;
+      bodyGroup.add(head);
+
+      const hair = new THREE.Mesh(new THREE.SphereGeometry(0.25, 16, 16, 0, Math.PI * 2, 0, Math.PI * 0.55), hairMat);
+      hair.position.y = 0.88;
+      hair.rotation.x = -0.1;
+      bodyGroup.add(hair);
+
+      const armGeo = new THREE.BoxGeometry(0.11, 0.48, 0.11);
+
+      const leftArmPivot = new THREE.Group();
+      leftArmPivot.position.set(-0.32, 0.55, 0);
+      const leftArmMesh = new THREE.Mesh(armGeo, shirtMat);
+      leftArmMesh.position.y = -0.22;
+      leftArmMesh.castShadow = true;
+      leftArmPivot.add(leftArmMesh);
+      bodyGroup.add(leftArmPivot);
+
+      const rightArmPivot = new THREE.Group();
+      rightArmPivot.position.set(0.32, 0.55, 0);
+      const rightArmMesh = new THREE.Mesh(armGeo, shirtMat);
+      rightArmMesh.position.y = -0.22;
+      rightArmMesh.castShadow = true;
+      rightArmPivot.add(rightArmMesh);
+      bodyGroup.add(rightArmPivot);
+
+      const legMeshGeo = new THREE.BoxGeometry(0.16, 0.58, 0.16);
+
+      const leftLegPivot = new THREE.Group();
+      leftLegPivot.position.set(-0.16, 0.65, 0);
+      const leftLegMesh = new THREE.Mesh(legMeshGeo, pantsMat);
+      leftLegMesh.position.y = -0.29;
+      leftLegMesh.castShadow = true;
+      leftLegPivot.add(leftLegMesh);
+
+      const leftShoe = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.1, 0.24), shoeMat);
+      leftShoe.position.set(0, -0.6, 0.04);
+      leftLegPivot.add(leftShoe);
+      charRoot.add(leftLegPivot);
+
+      const rightLegPivot = new THREE.Group();
+      rightLegPivot.position.set(0.16, 0.65, 0);
+      const rightLegMesh = new THREE.Mesh(legMeshGeo, pantsMat);
+      rightLegMesh.position.y = -0.29;
+      rightLegMesh.castShadow = true;
+      rightLegPivot.add(rightLegMesh);
+
+      const rightShoe = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.1, 0.24), shoeMat);
+      rightShoe.position.set(0, -0.6, 0.04);
+      rightLegPivot.add(rightShoe);
+      charRoot.add(rightLegPivot);
+
+      const ringGeo = new THREE.RingGeometry(0.68, 0.82, 32);
+      const ringMat = new THREE.MeshBasicMaterial({ color: 0x2563eb, side: THREE.DoubleSide, transparent: true, opacity: 0 });
+      const selectRing = new THREE.Mesh(ringGeo, ringMat);
+      selectRing.rotation.x = -Math.PI / 2;
+      selectRing.position.y = 0.03;
+      charRoot.add(selectRing);
+
+      const hitbox = new THREE.Mesh(new THREE.BoxGeometry(1.6, 2.4, 1.6), new THREE.MeshBasicMaterial({ visible: false }));
+      hitbox.position.y = 1.2;
+      hitbox.userData = { agentId: agent.id };
+      charRoot.add(hitbox);
+      clickableHitboxes.push(hitbox);
+
+      // Distributed distinct initial wander spots
+      let initPos = new THREE.Vector3(agent.deskPos[0], 0, agent.deskPos[2]);
+      let initLoc = "Area Santai";
+      let initFacing = 0;
+      let initThought = "Standby, siap menerima tugas ☕";
+
+      if (agent.id === "pm") {
+        initPos.set(0.0, 0, 0.0);
+        initLoc = "Meja Rapat Bundar";
+        initFacing = 0;
+        initThought = "Standby, memantau kondisi tim ☕";
+      } else if (agent.id === "uiux") {
+        initPos.set(13.5, 0, -4.5);
+        initLoc = "Sofa Lounge";
+        initFacing = -Math.PI / 4;
+        initThought = "Santai di sofa baca tren UI 📱";
+      } else if (agent.id === "frontend") {
+        initPos.set(9.5, 0, -11.5);
+        initLoc = "Dispenser Air";
+        initFacing = -Math.PI / 2;
+        initThought = "Tidak ada tugas aktif, santai dulu 💧";
+      } else if (agent.id === "backend") {
+        initPos.set(17.0, 0, 2.0);
+        initLoc = "Teras Jendela Kaca";
+        initFacing = Math.PI / 2;
+        initThought = "Menikmati pemandangan taman luar 🌳";
+      } else if (agent.id === "database") {
+        initPos.set(-9.5, 0, 4.0);
+        initLoc = "Lorong Barat";
+        initFacing = -Math.PI / 2;
+        initThought = "Peregangan santai sejenak 🚶";
+      } else if (agent.id === "devops") {
+        initPos.set(13.2, 0, -11.0);
+        initLoc = "Pantry Espresso";
+        initFacing = -Math.PI / 2;
+        initThought = "Seduh kopi espresso hangat ☕";
+      } else if (agent.id === "qa") {
+        initPos.set(13.5, 0, -7.0);
+        initLoc = "Sofa Lounge";
+        initFacing = Math.PI / 2;
+        initThought = "Santai di sofa baca berita 📱";
+      } else if (agent.id === "security") {
+        initPos.set(-11.5, 0, -1.0);
+        initLoc = "Papan Kanban";
+        initFacing = Math.PI / 2;
+        initThought = "Audit kartu sprint di papan 📋";
+      }
+
+      const controller = {
+        agent,
+        charRoot,
+        bodyGroup,
+        head,
+        leftArmPivot,
+        rightArmPivot,
+        leftLegPivot,
+        rightLegPivot,
+        selectRing,
+        currentState: "wandering",
+        subState: "chilling",
+        currentPos: initPos,
+        targetPos: new THREE.Vector3().copy(initPos),
+        walkSpeed: 1.65 + Math.random() * 0.35,
+        targetFacing: initFacing,
+        currentFacing: initFacing,
+        wanderTimer: Math.random() * 6 + 6,
+        currentLocationName: initLoc,
+        activeThought: initThought,
+        thoughtTimer: 5 + Math.random() * 5,
+        walkCycle: Math.random() * Math.PI * 2,
+        lastOutput: "Standby, menunggu instruksi."
+      };
+
+      charRoot.position.copy(controller.currentPos);
+      charRoot.rotation.y = controller.currentFacing;
+
+      agentControllers.push(controller);
+    });
+
+    // -------------------------------------------------------------
+    // Autonomous Wandering AI Simulation & Procedural Walk Cycle
+    // -------------------------------------------------------------
+    let simSpeedMultiplier = 1.0;
+    let simPaused = false;
+
+    function updateAgentAI(ctrl, dt) {
+      if (simPaused) return;
+      const effectiveDt = dt * simSpeedMultiplier;
+
+      ctrl.thoughtTimer -= effectiveDt;
+      if (ctrl.thoughtTimer <= 0) {
+        ctrl.thoughtTimer = 12 + Math.random() * 10;
+        if (ctrl.currentState === "working") {
+          const list = ctrl.agent.workingThoughts;
+          ctrl.activeThought = list[Math.floor(Math.random() * list.length)];
+        } else if (ctrl.currentState === "wandering") {
+          const list = ctrl.agent.wanderThoughts;
+          ctrl.activeThought = list[Math.floor(Math.random() * list.length)];
+        }
+      }
+
+      // 1. WORKING: Sitting at workstation desk and typing
+      if (ctrl.currentState === "working") {
+        const deskChairOffset = ctrl.agent.deskFacing === 0 ? 0.58 : -0.58;
+        const deskSittingPos = new THREE.Vector3(ctrl.agent.deskPos[0], 0, ctrl.agent.deskPos[2] + deskChairOffset);
+
+        const dist = ctrl.currentPos.distanceTo(deskSittingPos);
+        if (dist > 0.15) {
+          walkTowards(ctrl, deskSittingPos, effectiveDt);
+          ctrl.currentLocationName = "Berjalan ke Meja";
+        } else {
+          ctrl.currentPos.copy(deskSittingPos);
+          ctrl.currentFacing = ctrl.agent.deskFacing;
+          ctrl.charRoot.position.copy(ctrl.currentPos);
+          ctrl.charRoot.rotation.y = ctrl.currentFacing;
+          ctrl.currentLocationName = "Meja Kerja (Aktif)";
+
+          // Sitting Pose
+          ctrl.bodyGroup.position.y = 0.55;
+          ctrl.leftLegPivot.position.y = 0.45;
+          ctrl.rightLegPivot.position.y = 0.45;
+          ctrl.leftLegPivot.rotation.x = -Math.PI / 2;
+          ctrl.rightLegPivot.rotation.x = -Math.PI / 2;
+
+          // Typing Hands & Thinking Head
+          const t = Date.now() * 0.008;
+          ctrl.leftArmPivot.rotation.x = -Math.PI / 2.8 + Math.sin(t * 3) * 0.06;
+          ctrl.rightArmPivot.rotation.x = -Math.PI / 2.8 + Math.cos(t * 3.5) * 0.06;
+          ctrl.head.rotation.y = Math.sin(t * 0.8) * 0.05;
+        }
+      }
+
+      // 2. WANDERING: Exploring the office, drinking coffee, standing by window
+      else if (ctrl.currentState === "wandering") {
+        ctrl.bodyGroup.position.y = 0.95;
+        ctrl.leftLegPivot.position.y = 0.65;
+        ctrl.rightLegPivot.position.y = 0.65;
+
+        ctrl.wanderTimer -= effectiveDt;
+
+        if (ctrl.subState === "strolling") {
+          const dist = ctrl.currentPos.distanceTo(ctrl.targetPos);
+          if (dist > 0.25) {
+            walkTowards(ctrl, ctrl.targetPos, effectiveDt);
+          } else {
+            ctrl.subState = "chilling";
+            ctrl.wanderTimer = 8 + Math.random() * 10;
+            ctrl.leftLegPivot.rotation.x = 0;
+            ctrl.rightLegPivot.rotation.x = 0;
+            ctrl.leftArmPivot.rotation.x = 0;
+            ctrl.rightArmPivot.rotation.x = 0;
+          }
+        } else if (ctrl.subState === "chilling") {
+          const t = Date.now() * 0.003;
+          ctrl.head.rotation.y = Math.sin(t) * 0.15;
+          ctrl.leftArmPivot.rotation.x = Math.sin(t * 0.7) * 0.05;
+
+          if (ctrl.wanderTimer <= 0) {
+            pickNextWanderSpot(ctrl);
+          }
+        }
+      }
+
+      // 3. MEETING: Standup around central round table
+      else if (ctrl.currentState === "meeting") {
+        ctrl.bodyGroup.position.y = 0.95;
+        ctrl.leftLegPivot.position.y = 0.65;
+        ctrl.rightLegPivot.position.y = 0.65;
+
+        const idx = agentControllers.indexOf(ctrl);
+        const mPos = standupPositions[idx % standupPositions.length];
+        const targetV = new THREE.Vector3(mPos.pos[0], 0, mPos.pos[2]);
+
+        const dist = ctrl.currentPos.distanceTo(targetV);
+        if (dist > 0.2) {
+          walkTowards(ctrl, targetV, effectiveDt);
+          ctrl.currentLocationName = "Menuju Ruang Rapat";
+        } else {
+          ctrl.currentPos.copy(targetV);
+          ctrl.currentFacing = mPos.facing;
+          ctrl.charRoot.position.copy(ctrl.currentPos);
+          ctrl.charRoot.rotation.y = ctrl.currentFacing;
+          ctrl.currentLocationName = "Meja Rapat Standup";
+
+          const t = Date.now() * 0.004 + idx;
+          ctrl.leftArmPivot.rotation.x = Math.sin(t) * 0.08;
+          ctrl.rightArmPivot.rotation.x = -Math.PI / 4 + Math.cos(t * 1.5) * 0.1;
+          ctrl.head.rotation.y = Math.sin(t * 0.5) * 0.1;
+          ctrl.leftLegPivot.rotation.x = 0;
+          ctrl.rightLegPivot.rotation.x = 0;
+        }
+      }
+    }
+
+    function walkTowards(ctrl, target, dt) {
+      const dir = new THREE.Vector3().subVectors(target, ctrl.currentPos);
+      dir.y = 0;
+      const dist = dir.length();
+      if (dist < 0.001) return;
+
+      dir.normalize();
+
+      const targetAngle = Math.atan2(dir.x, dir.z);
+      let diff = targetAngle - ctrl.currentFacing;
+      while (diff < -Math.PI) diff += Math.PI * 2;
+      while (diff > Math.PI) diff -= Math.PI * 2;
+      ctrl.currentFacing += diff * 0.15;
+
+      const step = Math.min(ctrl.walkSpeed * dt, dist);
+      ctrl.currentPos.addScaledVector(dir, step);
+      ctrl.charRoot.position.copy(ctrl.currentPos);
+      ctrl.charRoot.rotation.y = ctrl.currentFacing;
+
+      ctrl.walkCycle += dt * ctrl.walkSpeed * 7.5;
+      const legSwing = Math.sin(ctrl.walkCycle) * 0.65;
+      const armSwing = Math.cos(ctrl.walkCycle) * 0.55;
+
+      ctrl.leftLegPivot.rotation.x = legSwing;
+      ctrl.rightLegPivot.rotation.x = -legSwing;
+      ctrl.leftArmPivot.rotation.x = -armSwing;
+      ctrl.rightArmPivot.rotation.x = armSwing;
+
+      ctrl.bodyGroup.position.y = 0.95 + Math.abs(Math.sin(ctrl.walkCycle * 2)) * 0.06;
+    }
+
+    function pickNextWanderSpot(ctrl) {
+      const busySpots = agentControllers
+        .filter(c => c !== ctrl && c.currentState === "wandering")
+        .map(c => c.currentLocationName);
+
+      let available = wanderSpots.filter(s => !busySpots.includes(s.name));
+      if (available.length === 0) available = wanderSpots;
+
+      const spot = available[Math.floor(Math.random() * available.length)];
+      ctrl.targetPos.set(spot.pos[0] + (Math.random() - 0.5) * 0.6, 0, spot.pos[2] + (Math.random() - 0.5) * 0.6);
+      ctrl.targetFacing = spot.facing;
+      ctrl.subState = "strolling";
+      ctrl.currentLocationName = spot.name;
+      ctrl.activeThought = spot.thought;
+    }
+
+    // -------------------------------------------------------------
+    // UI Directory, Selection & Follow Camera
+    // -------------------------------------------------------------
+    let selectedController = null;
+    let followingAgent = false;
+    let standupActive = false;
+
+    function renderTeamList() {
+      const list = document.getElementById("team-list");
+      list.innerHTML = "";
+
+      let workingCount = 0;
+      let wanderCount = 0;
+
+      agentControllers.forEach(ctrl => {
+        const a = ctrl.agent;
+        if (ctrl.currentState === "working") workingCount++;
+        else wanderCount++;
+
+        const isSel = selectedController === ctrl;
+        const row = document.createElement("div");
+        row.className = `agent-row ${isSel ? "selected" : ""}`;
+        row.innerHTML = `
+          <div>
+            <div style="font-weight: 600; font-size: 11px;">${a.name}</div>
+            <div style="font-size: 9.5px; color: var(--text-muted);">${ctrl.currentLocationName}</div>
+          </div>
+          <span class="agent-dot ${ctrl.currentState === 'working' ? 'dot-working' : 'dot-wandering'}"></span>
+        `;
+        row.onclick = () => {
+          selectAgent(ctrl);
+          document.getElementById("roster-popover").classList.remove("open");
+        };
+        list.appendChild(row);
+      });
+    }
+
+    function toggleRosterPopover() {
+      playSound("click");
+      document.getElementById("roster-popover").classList.toggle("open");
+    }
+
+    function selectAgent(ctrl) {
+      playSound("click");
+      if (selectedController) {
+        selectedController.selectRing.material.opacity = 0;
+        const prevBb = billboardElements[selectedController.agent.id];
+        if (prevBb) prevBb.classList.remove("selected");
+      }
+
+      selectedController = ctrl;
+      selectedController.selectRing.material.opacity = 0.85;
+
+      const currBb = billboardElements[ctrl.agent.id];
+      if (currBb) currBb.classList.add("selected");
+
+      openDrawer(ctrl);
+      renderTeamList();
+
+      // Show Floor Click Hint
+      const hint = document.getElementById("floor-cursor-hint");
+      hint.style.display = "flex";
+      document.getElementById("hint-agent-name").innerText = ctrl.agent.name;
+
+      if (!followingAgent) {
+        smoothCamTarget.set(ctrl.currentPos.x, 1.2, ctrl.currentPos.z);
+        smoothCamPos.set(ctrl.currentPos.x, 5.5, ctrl.currentPos.z + 7.5);
+      }
+    }
+
+    function openDrawer(ctrl) {
+      const a = ctrl.agent;
+      document.getElementById("d-name").innerText = a.name;
+      document.getElementById("d-role").innerText = `${a.role} (profiles/${a.alias})`;
+      document.getElementById("d-tech").innerText = a.tech;
+      document.getElementById("d-activity").innerText = `"${ctrl.activeThought}"`;
+      document.getElementById("d-location").innerText = ctrl.currentLocationName;
+      document.getElementById("d-output").innerText = ctrl.lastOutput || "Belum ada riwayat eksekusi.";
+
+      const badge = document.getElementById("d-badge");
+      if (ctrl.currentState === "working") {
+        badge.className = "state-badge badge-working";
+        badge.innerText = "Bekerja";
+      } else if (ctrl.currentState === "wandering") {
+        badge.className = "state-badge badge-wandering";
+        badge.innerText = "Keluyuran";
+      } else {
+        badge.className = "state-badge badge-meeting";
+        badge.innerText = "Rapat";
+      }
+
+      document.getElementById("agent-drawer").classList.add("open");
+    }
+
+    function closeDrawer() {
+      document.getElementById("agent-drawer").classList.remove("open");
+      const hint = document.getElementById("floor-cursor-hint");
+      hint.style.display = "none";
+    }
+
+    function toggleFollowSelected() {
+      if (!selectedController) return;
+      playSound("click");
+      followingAgent = !followingAgent;
+      const btn = document.getElementById("btn-follow-toggle");
+
+      if (followingAgent) {
+        btn.innerText = "⏹️ Lepas Kamera";
+        showToast(`📹 Kamera mengikuti ${selectedController.agent.name}`);
+      } else {
+        btn.innerText = "📹 Ikuti dengan Kamera";
+        showToast("📹 Kamera bebas dilepas");
+      }
+    }
+
+    function sendSelectedTo(action) {
+      if (!selectedController) return;
+      playSound("click");
+      const ctrl = selectedController;
+
+      if (action === "desk") {
+        ctrl.currentState = "working";
+        showToast(`💼 ${ctrl.agent.name} kembali ke meja kerja`);
+        logActivity("agent", `${ctrl.agent.name} menuju meja kerja.`);
+      } else if (action === "wander") {
+        ctrl.currentState = "wandering";
+        pickNextWanderSpot(ctrl);
+        showToast(`🚶 ${ctrl.agent.name} keluyuran santai`);
+      } else if (action === "pantry") {
+        ctrl.currentState = "wandering";
+        const spot = wanderSpots[0];
+        ctrl.targetPos.set(spot.pos[0], 0, spot.pos[2]);
+        ctrl.subState = "strolling";
+        ctrl.currentLocationName = spot.name;
+        ctrl.activeThought = "Mau seduh kopi espresso dulu ☕";
+        showToast(`☕ ${ctrl.agent.name} menuju Pantry Kopi`);
+      } else if (action === "window") {
+        ctrl.currentState = "wandering";
+        const spot = wanderSpots[3];
+        ctrl.targetPos.set(spot.pos[0], 0, spot.pos[2]);
+        ctrl.subState = "strolling";
+        ctrl.currentLocationName = spot.name;
+        ctrl.activeThought = "Melihat pepohonan luar jendela 🌳";
+        showToast(`🌳 ${ctrl.agent.name} menuju Teras Jendela`);
+      } else if (action === "meeting") {
+        ctrl.currentState = "wandering";
+        ctrl.targetPos.set(0, 0, 0);
+        ctrl.subState = "strolling";
+        ctrl.currentLocationName = "Meja Rapat Bundar";
+        ctrl.activeThought = "Duduk santai di meja rapat bundar 💡";
+        showToast(`💡 ${ctrl.agent.name} menuju Meja Rapat`);
+      } else if (action === "kanban") {
+        ctrl.currentState = "wandering";
+        const spot = wanderSpots[2];
+        ctrl.targetPos.set(spot.pos[0], 0, spot.pos[2]);
+        ctrl.subState = "strolling";
+        ctrl.currentLocationName = spot.name;
+        ctrl.activeThought = "Audit kartu sprint di papan 📋";
+        showToast(`📋 ${ctrl.agent.name} menuju Papan Kanban`);
+      }
+
+      openDrawer(ctrl);
+      renderTeamList();
+    }
+
+    function orderAllAgents(status) {
+      playSound("click");
+      standupActive = false;
+      document.getElementById("btn-standup").innerText = "👥 Standup";
+      document.getElementById("btn-standup").classList.remove("btn-active-glow");
+
+      agentControllers.forEach(ctrl => {
+        ctrl.currentState = status;
+        if (status === "wandering") {
+          pickNextWanderSpot(ctrl);
+        }
+      });
+
+      if (status === "working") {
+        showToast("💼 Seluruh 8 spesialis mulai bekerja di meja masing-masing");
+        logActivity("system", "Perintah massal: Semua spesialis bekerja.");
+      } else {
+        showToast("☕ Seluruh tim mulai istirahat & keluyuran");
+        logActivity("system", "Perintah massal: Semua spesialis istirahat.");
+      }
+
+      if (selectedController) openDrawer(selectedController);
+      renderTeamList();
+    }
+
+    function toggleStandupMeeting() {
+      playSound("click");
+      standupActive = !standupActive;
+      const btn = document.getElementById("btn-standup");
+
+      if (standupActive) {
+        btn.innerText = "🏢 Selesai Rapat";
+        btn.classList.add("btn-active-glow");
+        setCamPreset("standup");
+
+        agentControllers.forEach(ctrl => {
+          ctrl.currentState = "meeting";
+          ctrl.activeThought = "Rapat harian sprint: evaluasi progres tim 📊";
+        });
+        showToast("👥 Seluruh tim berkumpul di meja rapat standup");
+        logActivity("system", "Rapat harian standup dimulai.");
+      } else {
+        btn.innerText = "👥 Standup";
+        btn.classList.remove("btn-active-glow");
+        setCamPreset("overview");
+
+        agentControllers.forEach(ctrl => {
+          ctrl.currentState = "wandering";
+          pickNextWanderSpot(ctrl);
+        });
+        showToast("🏢 Rapat selesai, tim kembali ke aktivitas");
+        logActivity("system", "Rapat standup selesai.");
+      }
+
+      if (selectedController) openDrawer(selectedController);
+      renderTeamList();
+    }
+
+    // -------------------------------------------------------------
+    // SMART COMMAND CENTER & AUTO-ROUTER DISPATCH
+    // -------------------------------------------------------------
+    const smartInput = document.getElementById("smart-prompt-input");
+    const predBadge = document.getElementById("predicted-badge");
+
+    // Real-time responsive detection badge as user types
+    smartInput.addEventListener("input", (e) => {
+      const text = e.target.value.trim();
+      if (!text) {
+        predBadge.innerText = "🤖 Otomatis Klasifikasi";
+        predBadge.style.color = "var(--accent)";
+        return;
+      }
+      const pred = predictProfilesClient(text);
+      if (pred) {
+        predBadge.innerText = `🎯 Target: ${pred.label}`;
+        predBadge.style.color = "#8b5cf6";
+      }
+    });
+
+    smartInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        submitSmartCommand();
+      }
+    });
+
+    async function submitSmartCommand() {
+      const prompt = smartInput.value.trim();
+      if (!prompt) return;
+
+      playSound("click");
+      const btn = document.getElementById("btn-smart-exec");
+      btn.innerText = "⏳ Menyesuaikan...";
+      btn.disabled = true;
+
+      // Instant optimistic prediction
+      const clientPred = predictProfilesClient(prompt);
+      const preliminaryTargets = clientPred ? clientPred.profiles : ["pm"];
+
+      // Activate matched agents immediately in 3D
+      agentControllers.forEach(ctrl => {
+        if (preliminaryTargets.includes(ctrl.agent.alias)) {
+          ctrl.currentState = "working";
+          ctrl.subState = "typing";
+          ctrl.activeThought = `Menyesuaikan tugas: ${prompt.slice(0, 35)}...`;
+          updateSpeechBubble(ctrl.agent.id, ctrl.activeThought);
+        }
+      });
+      renderTeamList();
+
+      smartInput.value = "";
+      predBadge.innerText = "🤖 Otomatis Klasifikasi";
+
+      try {
+        const res = await fetch("/api/smart-dispatch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt })
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          const targets = data.targets || preliminaryTargets;
+          const taskMap = data.tasks || {};
+          const explanation = data.explanation || "";
+
+          // Assign specific customized task text to each agent
+          agentControllers.forEach(ctrl => {
+            if (targets.includes(ctrl.agent.alias)) {
+              ctrl.currentState = "working";
+              ctrl.subState = "typing";
+              if (taskMap[ctrl.agent.alias]) {
+                ctrl.activeThought = taskMap[ctrl.agent.alias];
+              }
+              updateSpeechBubble(ctrl.agent.id, ctrl.activeThought);
+            }
+          });
+
+          renderTeamList();
+
+          const targetNames = targets.map(t => {
+            const ag = agentData.find(a => a.alias === t);
+            return ag ? ag.name : t;
+          }).join(", ");
+
+          showToast(`🎯 Otomatis menyesuaikan ke ${targets.length} spesialis: ${targetNames}`);
+          logActivity("router", `Prompt: "${prompt}"`);
+          logActivity("system", `[ALOKASI TUGAS]: ${explanation}`);
+
+          // Log each role's specific sub-task in studio console
+          for (const [profId, taskDesc] of Object.entries(taskMap)) {
+            const ag = agentData.find(a => a.alias === profId);
+            const agName = ag ? ag.name : profId;
+            logActivity("agent", `-> [${agName}]: ${taskDesc}`);
+          }
+        }
+      } catch (err) {
+        console.warn("Executed locally in 3D studio:", err);
+      } finally {
+        btn.innerText = "🚀 Jalankan";
+        btn.disabled = false;
+      }
+    }
+
+    async function runDirectAgentTask() {
+      if (!selectedController) return;
+      const input = document.getElementById("d-task-input");
+      const prompt = input.value.trim();
+      if (!prompt) return;
+
+      playSound("click");
+      const profile = selectedController.agent.alias;
+      input.value = "";
+      const btn = document.getElementById("btn-run-agent");
+      btn.innerText = "⏳...";
+      btn.disabled = true;
+
+      selectedController.currentState = "working";
+      selectedController.subState = "typing";
+      selectedController.activeThought = prompt;
+      selectedController.lastOutput = "Sedang dieksekusi oleh Hermes...";
+      updateSpeechBubble(selectedController.agent.id, prompt);
+      openDrawer(selectedController);
+      renderTeamList();
+
+      showToast(`💼 ${selectedController.agent.name} mulai mengerjakan tugas`);
+      logActivity("agent", `${selectedController.agent.name} mengerjakan: "${prompt.slice(0, 40)}..."`);
+
+      try {
+        await fetch("/api/run", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ profile, prompt })
+        });
+      } catch (err) {
+        console.warn("Bridge API offline, running in 3D simulator:", err);
+      } finally {
+        setTimeout(() => {
+          btn.innerText = "🚀 Kirim";
+          btn.disabled = false;
+        }, 1200);
+      }
+    }
+
+    // -------------------------------------------------------------
+    // Live Real-Time Bridge Synchronization Loop
+    // -------------------------------------------------------------
+    async function syncWithHermesBridge() {
+      try {
+        const now = Date.now();
+        const res = await fetch("/api/status?t=" + now, { cache: "no-store" });
+        if (!res || !res.ok) return;
+
+        const data = await res.json();
+        let changed = false;
+
+        agentControllers.forEach(ctrl => {
+          const profileInfo = data[ctrl.agent.alias];
+          if (!profileInfo) return;
+
+          const serverStatus = profileInfo.status; // "working" or "idle"
+          if (profileInfo.last_output && profileInfo.last_output !== ctrl.lastOutput) {
+            ctrl.lastOutput = profileInfo.last_output;
+            if (ctrl.lastOutput && ctrl.lastOutput.length > 3) {
+              logActivity("success", `${ctrl.agent.name} selesai: ${ctrl.lastOutput.slice(0, 40)}`);
+              playSound("chime");
+            }
+          }
+
+          if (serverStatus === "working") {
+            if (ctrl.currentState !== "working") {
+              ctrl.currentState = "working";
+              ctrl.subState = "typing";
+              changed = true;
+            }
+            if (profileInfo.task && profileInfo.task !== ctrl.activeThought) {
+              ctrl.activeThought = profileInfo.task;
+              updateSpeechBubble(ctrl.agent.id, ctrl.activeThought);
+              changed = true;
+            }
+          } else if (serverStatus === "idle" && ctrl.currentState === "working") {
+            ctrl.currentState = "wandering";
+            ctrl.subState = "strolling";
+            ctrl.activeThought = profileInfo.task || "Tugas selesai, istirahat sejenak ☕";
+            pickNextWanderSpot(ctrl);
+            changed = true;
+          }
+        });
+
+        if (changed) {
+          renderTeamList();
+          if (selectedController) {
+            openDrawer(selectedController);
+          }
+        }
+      } catch (err) {}
+    }
+
+    setInterval(syncWithHermesBridge, 1500);
+
+    // -------------------------------------------------------------
+    // Studio Environment & Lighting Modes
+    // -------------------------------------------------------------
+    let currentLighting = "day";
+
+    function setLightingMode(mode) {
+      playSound("click");
+      document.querySelectorAll("#light-day, #light-sunset, #light-night").forEach(b => b.classList.remove("active"));
+      const btn = document.getElementById(`light-${mode}`);
+      if (btn) btn.classList.add("active");
+      currentLighting = mode;
+
+      if (mode === "day") {
+        scene.background.set(0xdce5ef);
+        ambientLight.color.set(0xffffff);
+        ambientLight.intensity = 0.45;
+        sun.color.set(0xfff8ee);
+        sun.intensity = 0.75;
+        sun.position.set(16, 26, 18);
+        ceilingLights.forEach(l => l.intensity = 0);
+        renderer.toneMappingExposure = 1.05;
+        showToast("☀️ Mode Pencahayaan: Siang Alami (Daylight)");
+      } else if (mode === "sunset") {
+        scene.background.set(0xdfbca3);
+        ambientLight.color.set(0xffd5b8);
+        ambientLight.intensity = 0.38;
+        sun.color.set(0xff944d);
+        sun.intensity = 0.95;
+        sun.position.set(20, 10, 16);
+        ceilingLights.forEach(l => l.intensity = 0.25);
+        renderer.toneMappingExposure = 1.1;
+        showToast("🌇 Mode Pencahayaan: Senja Hangat (Golden Hour)");
+      } else if (mode === "night") {
+        scene.background.set(0x0a0f1d);
+        ambientLight.color.set(0x1e293b);
+        ambientLight.intensity = 0.25;
+        sun.color.set(0x38bdf8);
+        sun.intensity = 0.15;
+        sun.position.set(16, 26, 18);
+        ceilingLights.forEach(l => l.intensity = 0.95);
+        renderer.toneMappingExposure = 1.25;
+        showToast("🌙 Mode Pencahayaan: Malam Nyaman (Cozy Night Studio)");
+      }
+    }
+
+    // Simulation Speed Control
+    function setSimulationSpeed(spd) {
+      playSound("click");
+      simSpeedMultiplier = spd;
+      simPaused = false;
+      document.getElementById("spd-1x").classList.toggle("active", spd === 1.0);
+      document.getElementById("spd-2x").classList.toggle("active", spd === 2.0);
+      document.getElementById("spd-pause").classList.remove("active");
+      showToast(`⚡ Kecepatan Simulasi: ${spd}x`);
+    }
+
+    function toggleSimulationPause() {
+      playSound("click");
+      simPaused = !simPaused;
+      document.getElementById("spd-pause").classList.toggle("active", simPaused);
+      showToast(simPaused ? "⏸️ Simulasi Deda" : "▶️ Simulasi Berjalan");
+    }
+
+    // -------------------------------------------------------------
+    // Camera Presets & Smooth Interpolation
+    // -------------------------------------------------------------
+    const smoothCamPos = new THREE.Vector3(0, 18, 25);
+    const smoothCamTarget = new THREE.Vector3(-0.5, 0.9, 0);
+
+    function setCamPreset(preset) {
+      playSound("click");
+      followingAgent = false;
+      document.getElementById("btn-follow-toggle").innerText = "📹 Ikuti dengan Kamera";
+
+      document.querySelectorAll(".cam-btn").forEach(b => {
+        if (b.id && b.id.startsWith("cam-")) b.classList.remove("active");
+      });
+      const btn = document.getElementById(`cam-${preset}`);
+      if (btn) btn.classList.add("active");
+
+      if (preset === "overview") {
+        smoothCamPos.set(0, 18, 25);
+        smoothCamTarget.set(-0.5, 0.9, 0);
+      } else if (preset === "desks") {
+        smoothCamPos.set(-2, 7.5, 8.5);
+        smoothCamTarget.set(-1.5, 1.2, 0);
+      } else if (preset === "lounge") {
+        smoothCamPos.set(11.5, 5.0, -3.0);
+        smoothCamTarget.set(12.5, 1.0, -8.5);
+      } else if (preset === "standup") {
+        smoothCamPos.set(0, 5.8, 6.8);
+        smoothCamTarget.set(0, 1.1, 0);
+      } else if (preset === "top") {
+        smoothCamPos.set(0, 26, 0.1);
+        smoothCamTarget.set(0, 0, 0);
+      }
+    }
+
+    // -------------------------------------------------------------
+    // Keyboard WASD & Camera Navigation Controls
+    // -------------------------------------------------------------
+    const keysPressed = {};
+    window.addEventListener("keydown", (e) => {
+      if (["INPUT", "TEXTAREA"].includes(document.activeElement.tagName)) return;
+
+      keysPressed[e.key.toLowerCase()] = true;
+
+      // Quick-Focus directly to 8 specialists via Keys 1-8!
+      if (["1","2","3","4","5","6","7","8"].includes(e.key)) {
+        const idx = parseInt(e.key) - 1;
+        if (agentControllers[idx]) {
+          selectAgent(agentControllers[idx]);
+          showToast(`🔍 Fokus Kamera ke: ${agentControllers[idx].agent.name}`);
+        }
+      }
+      else if (e.key.toLowerCase() === "r") setCamPreset("overview");
+      else if (e.key.toLowerCase() === "f" && selectedController) {
+        smoothCamTarget.set(selectedController.currentPos.x, 1.2, selectedController.currentPos.z);
+        smoothCamPos.set(selectedController.currentPos.x, 5.5, selectedController.currentPos.z + 7.5);
+        showToast(`🔍 Fokus Kamera: ${selectedController.agent.name}`);
+      } else if (e.key === " ") {
+        e.preventDefault();
+        toggleSimulationPause();
+      } else if (e.key === "?" || (e.key === "/" && e.shiftKey)) {
+        toggleShortcutsModal();
+      }
+    });
+
+    window.addEventListener("keyup", (e) => {
+      keysPressed[e.key.toLowerCase()] = false;
+    });
+
+    function handleWASD(dt) {
+      if (["INPUT", "TEXTAREA"].includes(document.activeElement.tagName)) return;
+
+      const moveSpeed = 14 * dt;
+      const rotSpeed = 1.8 * dt;
+
+      // Camera forward horizontal direction
+      const forward = new THREE.Vector3();
+      camera.getWorldDirection(forward);
+      forward.y = 0;
+      forward.normalize();
+
+      const right = new THREE.Vector3();
+      right.crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
+
+      let moved = false;
+      if (keysPressed["w"] || keysPressed["arrowup"]) {
+        smoothCamPos.addScaledVector(forward, moveSpeed);
+        smoothCamTarget.addScaledVector(forward, moveSpeed);
+        moved = true;
+      }
+      if (keysPressed["s"] || keysPressed["arrowdown"]) {
+        smoothCamPos.addScaledVector(forward, -moveSpeed);
+        smoothCamTarget.addScaledVector(forward, -moveSpeed);
+        moved = true;
+      }
+      if (keysPressed["a"] || keysPressed["arrowleft"]) {
+        smoothCamPos.addScaledVector(right, -moveSpeed);
+        smoothCamTarget.addScaledVector(right, -moveSpeed);
+        moved = true;
+      }
+      if (keysPressed["d"] || keysPressed["arrowright"]) {
+        smoothCamPos.addScaledVector(right, moveSpeed);
+        smoothCamTarget.addScaledVector(right, moveSpeed);
+        moved = true;
+      }
+
+      // Rotate camera angle Q and E
+      if (keysPressed["q"]) {
+        const offset = new THREE.Vector3().subVectors(smoothCamPos, smoothCamTarget);
+        offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), rotSpeed);
+        smoothCamPos.copy(smoothCamTarget).add(offset);
+      }
+      if (keysPressed["e"]) {
+        const offset = new THREE.Vector3().subVectors(smoothCamPos, smoothCamTarget);
+        offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), -rotSpeed);
+        smoothCamPos.copy(smoothCamTarget).add(offset);
+      }
+
+      if (moved) followingAgent = false;
+    }
+
+    // -------------------------------------------------------------
+    // Mouse Raycasting Selection & Floor Click-To-Move
+    // -------------------------------------------------------------
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+
+    window.addEventListener("click", (e) => {
+      if (e.target.closest("header, .dock-pill, .left-floating-controls, .drawer, .log-drawer, .modal-overlay, .agent-billboard")) return;
+
+      mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+
+      // Check agent hitboxes first
+      const agentHits = raycaster.intersectObjects(clickableHitboxes);
+      if (agentHits.length > 0) {
+        const agId = agentHits[0].object.userData.agentId;
+        const ctrl = agentControllers.find(c => c.agent.id === agId);
+        if (ctrl) selectAgent(ctrl);
+        return;
+      }
+
+      // If an agent is selected, click on floor moves that agent to clicked point!
+      if (selectedController) {
+        const floorHits = raycaster.intersectObject(floor);
+        if (floorHits.length > 0) {
+          const pt = floorHits[0].point;
+          // Trigger floor ripple animation
+          targetRipple.position.set(pt.x, 0.02, pt.z);
+          targetRipple.scale.set(0.1, 0.1, 0.1);
+          targetRipple.material.opacity = 0.9;
+
+          selectedController.targetPos.set(pt.x, 0, pt.z);
+          selectedController.currentState = "wandering";
+          selectedController.subState = "strolling";
+          selectedController.currentLocationName = "Posisi Kustom";
+          selectedController.activeThought = "Menuju ke koordinat yang dipilih 🎯";
+
+          showToast(`🎯 ${selectedController.agent.name} berjalan ke lokasi yang diklik`);
+          logActivity("agent", `${selectedController.agent.name} diarahkan ke posisi [${pt.x.toFixed(1)}, ${pt.z.toFixed(1)}]`);
+          playSound("click");
+          return;
+        }
+      }
+
+      // Click elsewhere deselects
+      closeDrawer();
+      document.getElementById("roster-popover").classList.remove("open");
+    });
+
+    // -------------------------------------------------------------
+    // 3D Billboards & Speech Layer Overlay
+    // -------------------------------------------------------------
+    const speechLayer = document.getElementById("speech-layer");
+    const billboardElements = {};
+
+    agentData.forEach(a => {
+      const bb = document.createElement("div");
+      bb.className = "agent-billboard";
+      bb.innerHTML = `
+        <div class="speech-bubble" id="bubble-${a.id}" style="display: none;">${a.workingThoughts[0]}</div>
+        <div class="agent-pill">
+          <span class="agent-dot dot-wandering" id="dot-${a.id}"></span>
+          <span>${a.shortName}</span>
+        </div>
+      `;
+      bb.onclick = () => {
+        const ctrl = agentControllers.find(c => c.agent.id === a.id);
+        if (ctrl) selectAgent(ctrl);
+      };
+      speechLayer.appendChild(bb);
+      billboardElements[a.id] = bb;
+    });
+
+    let activeBubbleAgentId = null;
+    let bubbleHideTimeout = null;
+
+    function updateSpeechBubble(agentId, text) {
+      if (activeBubbleAgentId && activeBubbleAgentId !== agentId) {
+        const prevBubble = document.getElementById(`bubble-${activeBubbleAgentId}`);
+        if (prevBubble) prevBubble.style.display = "none";
+      }
+
+      const bubble = document.getElementById(`bubble-${agentId}`);
+      if (!bubble) return;
+      activeBubbleAgentId = agentId;
+      bubble.innerText = text;
+      bubble.style.display = "block";
+
+      clearTimeout(bubbleHideTimeout);
+      bubbleHideTimeout = setTimeout(() => {
+        bubble.style.display = "none";
+        activeBubbleAgentId = null;
+      }, 4500);
+    }
+
+    setInterval(() => {
+      const randomCtrl = agentControllers[Math.floor(Math.random() * agentControllers.length)];
+      if (randomCtrl) {
+        updateSpeechBubble(randomCtrl.agent.id, randomCtrl.activeThought);
+      }
+    }, 7000);
+
+    function updateBillboards() {
+      const tempV = new THREE.Vector3();
+
+      agentControllers.forEach(ctrl => {
+        const bb = billboardElements[ctrl.agent.id];
+        if (!bb) return;
+
+        tempV.copy(ctrl.currentPos);
+        tempV.y += 2.25;
+        tempV.project(camera);
+
+        if (tempV.z > 1) {
+          bb.style.display = "none";
+          return;
+        }
+
+        const x = (tempV.x * 0.5 + 0.5) * window.innerWidth;
+        const rawY = (-(tempV.y * 0.5) + 0.5) * window.innerHeight;
+        const y = Math.max(78, rawY);
+
+        bb.style.display = "flex";
+        bb.style.left = `${x}px`;
+        bb.style.top = `${y}px`;
+
+        const dot = document.getElementById(`dot-${ctrl.agent.id}`);
+        if (dot) {
+          dot.className = `agent-dot ${ctrl.currentState === 'working' ? 'dot-working' : 'dot-wandering'}`;
+        }
+      });
+    }
+
+    // -------------------------------------------------------------
+    // UI Helpers: Toast, Logs & Shortcuts
+    // -------------------------------------------------------------
+    let toastTimeout = null;
+    function showToast(msg) {
+      const toast = document.getElementById("toast-banner");
+      document.getElementById("toast-msg").innerText = msg;
+      toast.classList.add("show");
+      clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        toast.classList.remove("show");
+      }, 3500);
+    }
+
+    function logActivity(type, text) {
+      const content = document.getElementById("log-content");
+      const d = new Date();
+      const timeStr = `[${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}]`;
+
+      const item = document.createElement("div");
+      item.className = "log-item";
+      let tagHtml = "";
+      if (type === "router") tagHtml = `<span class="log-tag tag-router">[ROUTER]</span>`;
+      else if (type === "agent") tagHtml = `<span class="log-tag tag-agent">[AGENT]</span>`;
+      else if (type === "success") tagHtml = `<span class="log-tag tag-success">[FINISH]</span>`;
+      else tagHtml = `<span class="log-tag tag-system">[SYSTEM]</span>`;
+
+      item.innerHTML = `<span class="log-time">${timeStr}</span> ${tagHtml} <span>${text}</span>`;
+      content.appendChild(item);
+      content.scrollTop = content.scrollHeight;
+    }
+
+    function toggleLogDrawer() {
+      playSound("click");
+      document.getElementById("log-drawer").classList.toggle("open");
+    }
+
+    function toggleShortcutsModal() {
+      playSound("click");
+      document.getElementById("shortcuts-modal").classList.toggle("open");
+    }
+
+    // -------------------------------------------------------------
+    // Main Render & Animation Loop
+    // -------------------------------------------------------------
+    const clock = new THREE.Clock();
+    let lastSimTime = performance.now();
+
+    function tickSimulation() {
+      const now = performance.now();
+      const dt = Math.min((now - lastSimTime) / 1000, 0.1);
+      lastSimTime = now;
+      if (dt > 0.001) {
+        agentControllers.forEach(ctrl => {
+          updateAgentAI(ctrl, dt);
+        });
+      }
+    }
+
+    // High-frequency physics ticker ensures walking animations run even when tab is in background
+    setInterval(tickSimulation, 33);
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const dt = clock.getDelta();
+
+      handleWASD(dt);
+
+      // Target ripple pulse animation
+      if (targetRipple.material.opacity > 0) {
+        targetRipple.scale.addScalar(dt * 2.5);
+        targetRipple.material.opacity -= dt * 1.8;
+      }
+
+      if (followingAgent && selectedController) {
+        const pos = selectedController.currentPos;
+        smoothCamTarget.set(pos.x, 1.2, pos.z);
+        const angle = selectedController.currentFacing;
+        const dist = 5.8;
+        smoothCamPos.set(
+          pos.x - Math.sin(angle) * dist,
+          pos.y + 4.2,
+          pos.z - Math.cos(angle) * dist
+        );
+      }
+
+      camera.position.lerp(smoothCamPos, 0.05);
+      controls.target.lerp(smoothCamTarget, 0.05);
+      controls.update();
+
+      updateBillboards();
+      renderer.render(scene, camera);
+    }
+
+    window.addEventListener("resize", () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // Start
+    renderTeamList();
+    syncWithHermesBridge();
+    animate();
+  </script>
+</body>
+</html>
